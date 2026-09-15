@@ -1,22 +1,20 @@
 <h1 style="border-bottom: none; text-decoration: underline;">Project Initial Details</h1>
 
 # Problem Statement & Target Users:
-```
-On ride-hailing platforms such as Grab, Gojek, and Tada, reports of harassment and abuse arrive as unstructured free text. Trust & Safety teams handle them manually alongside ordinary complaints; severity isn't sorted reliably when reports come in. This creates harms such as high-risk reports sitting in the same queue as minor ones. In Singapore, the Protection from Harassment Act (POHA) covers harassment, and operators owe duty-of-care obligations to LTA-licensed drivers and passengers. An undocumented or delayed response is a compliance liability, not just an efficiency issue. 
+>On ride-hailing platforms such as Grab, Gojek, and Tada, reports of harassment and abuse arrive as unstructured free text. Trust & Safety teams handle them manually alongside ordinary complaints; severity isn't sorted reliably when reports come in. This creates harms such as high-risk reports sitting in the same queue as minor ones. In Singapore, the Protection from Harassment Act (POHA) covers harassment, and operators owe duty-of-care obligations to LTA-licensed drivers and passengers. An undocumented or delayed response is a compliance liability, not just an efficiency issue. 
+>Through the use of an AI-assisted workflow, our solution allows user inputs to be properly tagged and categorised into classifications based on severity, providing a sanitised list of reports for customer support to filter through.
 
-Through the use of an AI-assisted workflow, our solution allows user inputs to be properly tagged and categorised into classifications based on severity, providing a sanitised list of reports for customer support to filter through.
-```
 
 ## Target Users:
 - Reporting Users (Passengers): File confidential hazard or harassment incident observations from the field.
 - Trust & Safety teams: Review prioritized, categorized safety output, automated escalation queues, recurring-offender alerts, and mandatory corrective actions.
 
 # User Inputs (io_manager.py)
-- Free-text description of the incident (required, sanitised before reaching the AI)
-- Trip ID (required, validated against the active/recent trip log)
-- User ID (required)
-- Driver’s License Plate number (required)
-- Timestamp (auto-captured)
+- Free-text description of the incident (Sanitised before reaching the AI)
+- Trip ID (Would be validated against the active/recent trip log)
+- User ID
+- Driver’s License Plate number 
+- Timestamp (Auto-captured)
 - Possible future implementation:  
     * Severity self-assessment (low/medium/high) — stored for audit, never overrides the AI's classification
     * Evidence Attachments(filenames/IDs only, not the files themselves)
