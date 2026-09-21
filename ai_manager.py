@@ -247,7 +247,23 @@ def validate_response(data):
         "confidence": 0.75,
         "reasoning": "Verbal complaint only, single incident, no stated fear for safety.",
     })
-    
+
+if __name__ == "__main__":
+    sample_record = {
+        "report_text": "The driver made an inappropriate sexual comment during the ride.",
+    }
+ 
+    original_call_api = call_api
+    globals()["call_api"] = call_api_mock  # swap in the mock for this run
+ 
+    result = process(sample_record)
+ 
+    globals()["call_api"] = original_call_api  # restore, in case this gets imported later
+ 
+    print("Input record:")
+    print(sample_record)
+    print("\nAI result:")
+    print(json.dumps(result, indent=2) if result else "None (processing failed)")
 
 
  
