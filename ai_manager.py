@@ -228,7 +228,25 @@ def validate_response(data):
  
     logging.error(f"AI processing failed after {MAX_RETRIES + 1} attempt(s) for record: {record}")
     return None
+
+ def call_api_mock(prompt):
+    """
+    Drop-in replacement for call_api() during development or testing,
+    when no live Gemini API connection is available or wanted (e.g.
+    the automated test script, which must run without a live API).
+    Returns a fixed, valid response regardless of prompt content.
  
+    To use: temporarily reassign call_api = call_api_mock in process(),
+    or monkeypatch it from your test script.
+    """
+    return json.dumps({
+        "category": "verbal_abuse",
+        "contact_type": "verbal",
+        "stated_effect": "distress",
+        "severity": 1,
+        "confidence": 0.75,
+        "reasoning": "Verbal complaint only, single incident, no stated fear for safety.",
+    })
     
 
 
