@@ -118,6 +118,28 @@ def call_api(prompt):
         logging.error(f"Unexpected Gemini response shape: {e}")
         return None
 
+   def parse_response(raw):
+    """
+    Extract and parse a JSON object out of the raw API text.
+ 
+    Handles the common failure modes: None input, markdown code fences
+    around the JSON, or stray text before/after the object. Returns a
+    dict on success, None on any failure.
+    """
+    if raw is None:
+        return None
+ 
+    match = re.search(r"\{.*\}", raw, re.DOTALL)
+    if not match:
+        logging.error(f"No JSON object found in AI response: {raw!r}")
+        return None
+ 
+    try:
+        return json.loads(match.group())
+    except json.JSONDecodeError as e:
+        logging.error(f"Failed to parse JSON from AI response: {e} | raw={raw!r}")
+        return None
+
     
 
 
