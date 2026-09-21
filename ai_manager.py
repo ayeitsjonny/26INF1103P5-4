@@ -82,5 +82,44 @@ Return ONLY a JSON object, with no other text, no markdown code fences, and no e
 If the text is too vague to classify confidently, still return your best guess for every field but reflect that uncertainty in a low confidence value."""
  
     return prompt
+
+def call_api(prompt):
+    """
+    Send prompt to the Gemini API. Returns the raw text content of the
+    response, or None on any failure. Never raises.
+ 
+    Uses response_mime_type="application/json" to push Gemini toward
+    returning a clean JSON object, though parse_response() still has
+    to handle cases where it doesn't.
+    """
+    if _client is None:
+        logging.error("GEMINI_API_KEY not set — cannot call API")
+        return None
+ 
+    try:
+        response = _client.models.generate_content(
+            model=MODEL,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                temperature=0,
+                response_mime_type="application/json",
+                http_options=types.HttpOptions(timeout=REQUEST_TIMEOUT_MS),
+            ),
+        )
+        return response.text
+ 
+    except genai_errors.APIError as e:
+        # Covers connection failures, timeouts, rate limits, and bad
+        # responses from Google's side — the SDK folds these into one
+        # exception type with a status code attached.
+        logging.error(f"Gemini API error (status={getattr(e, 'code', '?')}): {e}")
+        return None
+    except (KeyError, IndexError, ValueError, AttributeError) as e:
+        logging.error(f"Unexpected Gemini response shape: {e}")
+        return None
+
+    
+
+
  
  
