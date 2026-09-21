@@ -1,2 +1,0 @@
-# 26INF1103P5-4
-INF1103 Project
