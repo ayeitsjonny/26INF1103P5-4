@@ -199,14 +199,38 @@ def validate_response(data):
         "confidence": float(confidence),
         "reasoning": reasoning.strip(),
     }
+
+ def process(record):
+    """
+    Run one record through the full AI pipeline: build prompt, call
+    API, parse, validate. Retries once on failure before giving up.
  
+    Returns a dict of AI fields (category, contact_type, stated_effect,
+    severity, confidence, reasoning) to merge into the record, or None
+    if the AI could not produce a usable result after retries.
+    logic_manager is responsible for deciding what happens to a record
+    with a None AI result (e.g. route to manual review).
+    """
+    attempts = 0
+    while attempts <= MAX_RETRIES:
+        prompt = build_prompt(record)
+        raw = call_api(prompt)
+        parsed = parse_response(raw)
+        validated = validate_response(parsed)
+ 
+        if validated is not None:
+            return validated
+ 
+        attempts += 1
+        if attempts <= MAX_RETRIES:
+            logging.info(f"Retrying AI call for record (attempt {attempts + 1})")
+            time.sleep(1)
+ 
+    logging.error(f"AI processing failed after {MAX_RETRIES + 1} attempt(s) for record: {record}")
+    return None
  
     
 
 
  
-<<<<<<< HEAD
- 
-=======
- 
->>>>>>> a7355dee6210039b2020e37477aa736cc4c6a640
+
