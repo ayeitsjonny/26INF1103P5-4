@@ -205,4 +205,8 @@ def validate_response(data):
 
 
  
+<<<<<<< HEAD
  
+=======
+ 
+>>>>>>> a7355dee6210039b2020e37477aa736cc4c6a640
