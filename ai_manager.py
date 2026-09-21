@@ -140,6 +140,67 @@ def call_api(prompt):
         logging.error(f"Failed to parse JSON from AI response: {e} | raw={raw!r}")
         return None
 
+def validate_response(data):
+    """
+    Check that a parsed response has the required keys, correct types,
+    and values in range. Returns the validated dict on success, None
+    on any failure.
+    """
+    if data is None:
+        return None
+ 
+    required_keys = {
+        "category", "contact_type",
+        "stated_effect", "severity", "confidence", "reasoning",
+    }
+    missing = required_keys - data.keys()
+    if missing:
+        logging.error(f"AI response missing keys: {missing} | data={data}")
+        return None
+ 
+    category = data["category"]
+    if category not in VALID_CATEGORIES:
+        logging.error(f"AI response has invalid category: {category!r}")
+        return None
+ 
+    contact_type = data["contact_type"]
+    if contact_type not in VALID_CONTACT_TYPES:
+        logging.error(f"AI response has invalid contact_type: {contact_type!r}")
+        return None
+ 
+    stated_effect = data["stated_effect"]
+    if stated_effect not in VALID_STATED_EFFECTS:
+        logging.error(f"AI response has invalid stated_effect: {stated_effect!r}")
+        return None
+ 
+    severity = data["severity"]
+    if isinstance(severity, bool) or not isinstance(severity, int) or severity not in (0, 1, 2):
+        logging.error(f"AI response has invalid severity: {severity!r}")
+        return None
+ 
+    confidence = data["confidence"]
+    if isinstance(confidence, bool) or not isinstance(confidence, (int, float)):
+        logging.error(f"AI response has invalid confidence type: {confidence!r}")
+        return None
+    if not (0.0 <= float(confidence) <= 1.0):
+        logging.error(f"AI response confidence out of range: {confidence!r}")
+        return None
+ 
+    reasoning = data["reasoning"]
+    if not isinstance(reasoning, str) or not reasoning.strip():
+        logging.error(f"AI response has invalid reasoning: {reasoning!r}")
+        return None
+ 
+    return {
+        "category": category,
+        "contact_type": contact_type,
+        "stated_effect": stated_effect,
+        "severity": severity,
+        "confidence": float(confidence),
+        "reasoning": reasoning.strip(),
+    }
+ 
+ 
     
 
 
