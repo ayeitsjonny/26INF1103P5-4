@@ -22,3 +22,12 @@ VALID_CATEGORIES = {
     "reckless_driving",
     "other",
 }
+
+VALID_CONTACT_TYPES = {"none", "verbal", "physical"}
+VALID_STATED_EFFECTS = {"none", "distress", "fear_for_safety"}
+ 
+logging.basicConfig(
+    filename="ai_manager.log",
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+)
