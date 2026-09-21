@@ -1,16 +1,24 @@
+import os
+import json
+import re
+import time
+import logging
 from google import genai
+from google.genai import types
+from google.genai import errors as genai_errors
 
-client = genai.Client()
-
-interaction1 = client.interactions.create(
-    model="gemini-3.8-flash",
-    input="I have 2 dogs in my house.",
-)
-print(interaction1.output_text)
-
-interaction2 = client.interactions.create(
-    model="gemini-3.8-flash",
-    input="How many paws are in my house?",
-    previous_interaction_id=interaction1.id,
-)
-print(interaction2.output_text)
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
+MODEL = "gemini-2.5-flash"
+REQUEST_TIMEOUT_MS = 10_000  # 10 seconds
+MAX_RETRIES = 1  # one retry on malformed/invalid response before giving up
+ 
+_client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
+ 
+VALID_CATEGORIES = {
+    "physical_assault",
+    "sexual_harassment",
+    "stalking",
+    "verbal_abuse",
+    "reckless_driving",
+    "other",
+}
