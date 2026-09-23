@@ -1,10 +1,9 @@
 import re
 from datetime import datetime
 
-# Singapore registration plates: 1-4 letters, 1-4 digits, and a suffix letter.
-SINGAPORE_LICENSE_PLATE_REGEX = re.compile(r"\b[A-Z]{1,4}\s*\d{1,4}\s*[A-Z]\b", re.IGNORECASE)
+SINGAPORE_LICENSE_PLATE_REGEX = re.compile(r"\bS[A-Z]{0,3}\s*\d{1,4}\s*[A-Z]\b", re.IGNORECASE)
 TRIP_ID_PATTERN = re.compile(r"^[A-Za-z0-9]{5,20}$")
-USER_ID_PATTERN = re.compile(r"^[A-Za-z0-9_\-]{3,30}$")
+USER_ID_PATTERN = re.compile(r"^[A-Za-z0-9_\-]{5,30}$")
 
 REPORT_MIN_CHARACTERS = 10
 REPORT_MAX_CHARACTERS = 2000
@@ -15,6 +14,12 @@ VALID_CATEGORIES = {"unsafe_driving", "verbal_harassment", "long_hauling", "phys
 SEVERITY_MIN, SEVERITY_MAX = 0, 2
 
 YES_NO = {"y": True, "yes": True, "n": False, "no": False}
+
+
+def print_banner():
+    print("=" * 40)
+    print("       AI-ASSISTED SAFETY REPORTING")
+    print("=" * 40)
 
 
 def non_empty_input(prompt):
@@ -77,19 +82,19 @@ def validate_yes_no(answer):
     return YES_NO.get(answer.strip().lower())
 
 
-def get_license_plate_from_report(report_details):
+def get_license_plate(report_details):
     match = SINGAPORE_LICENSE_PLATE_REGEX.search(report_details)
     while not match:
         report_details = input("No license plate found. Please enter the license in (SXX1234A): ")
         match = SINGAPORE_LICENSE_PLATE_REGEX.search(report_details)
-    return match.group() if match else None
+    return re.sub(r"\s+", "", match.group()).upper()
 
 
 # --- field getters ---
 
 def get_user_id():
     return get_valid_field(
-        "Please enter the user ID: ",
+        "Please input your user ID: ",
         validate_user_id,
         "Invalid user ID. Use 3-30 characters: letters, numbers, underscore, or hyphen.",
     )
@@ -97,7 +102,7 @@ def get_user_id():
 
 def get_trip_id():
     return get_valid_field(
-        "Please enter the trip ID: ",
+        "Please input your Trip ID: ",
         validate_trip_id,
         "Invalid trip ID. Use 6-20 alphanumeric characters.",
     )
@@ -145,17 +150,19 @@ def get_yes_no_field(prompt):
 
 
 def build_report():
+    print_banner()
     user_id = get_user_id()
     trip_id = get_trip_id()
     report_details = get_report_details()
-    license_plate = get_license_plate_from_report(report_details)
+    # print(report_details)
+    license_plate = get_license_plate(report_details)
+    # print(f"Extracted license plate: {license_plate}")
     category = get_category()
     severity = get_severity()
     confidence = get_confidence()
     second_opinion_required = get_yes_no_field("Second opinion required? (y/n): ")
     immediate_attention_required = get_yes_no_field("Immediate attention required? (y/n): ")
 
-    print(f"Extracted license plate: {license_plate}")
 
     record = {
         "user_id": user_id,
