@@ -109,11 +109,22 @@ def get_trip_id():
 
 
 def get_report_details():
-    return get_valid_field(
-        "Please enter the report details: ",
-        validate_report_details,
-        f"Report details must be between {REPORT_MIN_CHARACTERS} and {REPORT_MAX_CHARACTERS} characters.",
-    )
+    while True:
+        print("Please tell us what happened during the incident.")
+        print("Press Enter on an empty line when you have finished.")
+
+        report_lines = []
+        while True:
+            line = input()
+            if not line:
+                break
+            report_lines.append(line)
+
+        report_details = "\n".join(report_lines).strip()
+        if validate_report_details(report_details) is not None:
+            return report_details
+
+        print(f"Report details must be between {REPORT_MIN_CHARACTERS} and {REPORT_MAX_CHARACTERS} characters. Please try again.")
 
 
 def get_category():
@@ -180,6 +191,16 @@ def build_report():
     print("Report captured.\n")
     return record
 
+def report_summary(record):
+    print("\nIncident Report Summary")
+    print(f"User ID: {record['user_id']}")
+    print(f"Trip ID: {record['trip_id']}")
+    print(f"Report Details: {record['report_details']}")
+    print(f"License Plate: {record['license_plate']}")
+    print(f"Category: {record['category']}")
+    print(f"Severity: {record['severity']}")
+    print(f"Confidence: {record['confidence']}")
 
 if __name__ == "__main__":
-    build_report()
+    report = build_report()
+    report_summary(report)
