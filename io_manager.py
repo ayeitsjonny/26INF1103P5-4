@@ -1,19 +1,18 @@
 import re
 from datetime import datetime
 
-# Singapore registration plates: 1-3 letters, 1-4 digits, and a suffix letter.
-SINGAPORE_LICENSE_PLATE_REGEX = re.compile(r"^[A-Z]{1,3}\s*\d{1,4}\s*[A-Z]$", re.IGNORECASE)
-TRIP_ID_PATTERN = re.compile(r"^[A-Za-z0-9]{6,20}$")
+# Singapore registration plates: 1-4 letters, 1-4 digits, and a suffix letter.
+SINGAPORE_LICENSE_PLATE_REGEX = re.compile(r"\b[A-Z]{1,4}\s*\d{1,4}\s*[A-Z]\b", re.IGNORECASE)
+TRIP_ID_PATTERN = re.compile(r"^[A-Za-z0-9]{5,20}$")
 USER_ID_PATTERN = re.compile(r"^[A-Za-z0-9_\-]{3,30}$")
 
 REPORT_MIN_CHARACTERS = 10
 REPORT_MAX_CHARACTERS = 2000
 
 # ASSUMPTION: fixed category list. Change to match your actual taxonomy.
-VALID_CATEGORIES = {"harassment", "unsafe_driving", "vehicle_condition", "route_deviation", "other"}
+VALID_CATEGORIES = {"unsafe_driving", "verbal_harassment", "long_hauling", "physical_assault", "sexual_harassment", "stalking", "misc"}
 
-# ASSUMPTION: severity is 1-5. Change if your scale differs.
-SEVERITY_MIN, SEVERITY_MAX = 1, 5
+SEVERITY_MIN, SEVERITY_MAX = 0, 2
 
 YES_NO = {"y": True, "yes": True, "n": False, "no": False}
 
@@ -80,6 +79,9 @@ def validate_yes_no(answer):
 
 def get_license_plate_from_report(report_details):
     match = SINGAPORE_LICENSE_PLATE_REGEX.search(report_details)
+    while not match:
+        report_details = input("No license plate found. Please enter the license in (SXX1234A): ")
+        match = SINGAPORE_LICENSE_PLATE_REGEX.search(report_details)
     return match.group() if match else None
 
 
@@ -146,17 +148,14 @@ def build_report():
     user_id = get_user_id()
     trip_id = get_trip_id()
     report_details = get_report_details()
+    license_plate = get_license_plate_from_report(report_details)
     category = get_category()
     severity = get_severity()
     confidence = get_confidence()
     second_opinion_required = get_yes_no_field("Second opinion required? (y/n): ")
     immediate_attention_required = get_yes_no_field("Immediate attention required? (y/n): ")
 
-    license_plate = get_license_plate_from_report(report_details)
-    if license_plate:
-        print(f"Extracted license plate: {license_plate}")
-    else:
-        print("No license plate found in report details.")
+    print(f"Extracted license plate: {license_plate}")
 
     record = {
         "user_id": user_id,
@@ -170,7 +169,7 @@ def build_report():
         "immediate_attention_required": immediate_attention_required,
         "timestamp": datetime.now().isoformat(timespec="seconds"),
     }
-
+    
     print("Report captured.\n")
     return record
 
