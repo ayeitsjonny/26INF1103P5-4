@@ -49,3 +49,26 @@ def save_record(record_data):
         writer = csv.DictWriter(csvfile, fieldnames=FIELDNAMES)
         writer.writerow(full_record)
     return True
+
+def update_record(incident_id, ai_results):
+    #Updates an existing incident record in the CSV file based on the provided incident_id and AI results.
+    records = load_all_records()
+    updated = False
+
+    for record in records:
+        if record["INCIDENT_ID"] == str(incident_id):
+            record["VALID_CATEGORIES"] = ai_results.get("VALID_CATEGORIES", record["VALID_CATEGORIES"])
+            record["SEVERITY"] = ai_results.get("SEVERITY", record["SEVERITY"])
+            record["CONFIDENCE"] = ai_results.get("CONFIDENCE", record["CONFIDENCE"])
+            record["STATUS"] = "PROCESSED"
+            updated = True
+            break
+
+    if updated:
+        with open(CSV_FILE, mode='w', newline='', encoding='utf-8') as csvfile:
+            writer = csv.DictWriter(csvfile, fieldnames=FIELDNAMES)
+            writer.writeheader()
+            writer.writerows(records)
+
+    return updated
+
