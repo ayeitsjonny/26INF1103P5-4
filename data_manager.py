@@ -17,4 +17,14 @@ FIELDNAMES = [
     "STATUS"
 ]
 
-print(FIELDNAMES)
+def initialize_csv():
+    #Initializes the CSV file with headers if it doesn't exist or is empty.
+    if not os.path.exists(CSV_FILE) or os.path.getsize(CSV_FILE) == 0:
+        with open(CSV_FILE, mode='w', newline='', encoding='utf-8') as csvfile:
+            writer = csv.DictWriter(csvfile, fieldnames=FIELDNAMES)
+            writer.writeheader()
+        logging.info(f"CSV file '{CSV_FILE}' initialized with headers.")
+    else:
+        logging.info(f"CSV file '{CSV_FILE}' already exists and is not empty.")
+        
+    
