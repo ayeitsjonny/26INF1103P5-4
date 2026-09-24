@@ -72,3 +72,17 @@ def update_record(incident_id, ai_results):
 
     return updated
 
+def filter_by_severity(severity_level):
+    #Filters records in the CSV file based on the provided severity level.
+    records = load_all_records()
+    return [record for record in records if str(record.get("SEVERITY")) == str(severity_level)]
+
+def filter_by_category(category):
+    #Filters records in the CSV file based on the provided category.
+    records = load_all_records()
+    return [record for record in records if category in record.get("VALID_CATEGORIES", "").lower() == target_category.lower()]
+
+def get_records_by_user(user_id):
+    #Retrieves all records associated with the provided user_id.
+    records = load_all_records()
+    return [record for record in records if str(record.get("USER_ID")) == str(user_id)]
