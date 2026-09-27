@@ -31,12 +31,13 @@ def _make_client(key):
 _client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
 
 VALID_CATEGORIES = {
+    "unsafe_driving",
+    "verbal_harassment",
+    "long_hauling",
     "physical_assault",
     "sexual_harassment",
     "stalking",
-    "verbal_abuse",
-    "reckless_driving",
-    "other",
+    "misc",
 }
 
 VALID_CONTACT_TYPES = {"none", "verbal", "physical"}
@@ -63,6 +64,11 @@ def build_prompt(record):
     than judged from subject matter alone, so "a sexual comment" and
     "a sexual comment repeated with a threat of violence" don't both
     collapse into the same severity just because they share a category.
+
+    Exception: sexual_harassment is always severity 2 minimum, even
+    when contact_type is "verbal" or "none". Unlike other categories,
+    sexual harassment is treated as high severity regardless of
+    whether contact was physical, given its sensitivity.
     """
     report_text = record.get("report_text", "")
 
@@ -75,25 +81,25 @@ Step 1 — extract two signals from the text:
 - stated_effect: "fear_for_safety" if the report explicitly describes fear, being followed, threats of future harm, or similar; "distress" if it describes being upset, uncomfortable, or offended without fear of safety; "none" if no emotional impact is stated.
 
 Step 2 — assign severity using this rubric:
-- severity 2 (high): physical_assault, sexual_harassment involving physical contact, or stalking — matches POHA Section 5 (fear of violence) or Section 7 (unlawful stalking). Heaviest tier — immediate escalation.
-- severity 1 (medium): verbal abuse, threats, indecent remarks, or unwanted contact without physical assault — matches POHA Section 3 (intentional harassment). Causes distress or fear without physical contact.
+- severity 2 (high): physical_assault, stalking, or sexual_harassment of any kind (spoken, written, or physical contact — sexual harassment is always severity 2 minimum regardless of contact_type) — matches POHA Section 5 (fear of violence) or Section 7 (unlawful stalking), or is treated as high severity given its sensitivity. Heaviest tier — immediate escalation.
+- severity 1 (medium): unsafe_driving, verbal_harassment, threats, indecent remarks not of a sexual nature, or unwanted contact without physical assault — matches POHA Section 3 (intentional harassment). Causes distress or fear without physical contact.
 - severity 0 (low): general service complaints, rudeness, fare disputes — no harassment under POHA.
 
-Step 3 — assign category as the closest match: physical_assault, sexual_harassment, stalking, verbal_abuse, reckless_driving, or other.
+Step 3 — assign category as the closest match: unsafe_driving, verbal_harassment, long_hauling, physical_assault, sexual_harassment, stalking, or other.
 
 Two worked examples for calibration:
-1. "The driver made an inappropriate sexual comment" -> contact_type: "verbal", stated_effect: "distress", category: "sexual_harassment", severity: 1 (a single indecent remark, no contact, no stated fear — Section 3, not Section 5).
-2. "The driver threatened to sexually assault me and followed me home" -> contact_type: "verbal" (threat, not actual contact), stated_effect: "fear_for_safety", category: "sexual_harassment", severity: 2 (explicit threat plus following someone home meets the fear-of-violence bar under Section 5, even without physical contact).
+1. "The driver made an inappropriate sexual comment" -> contact_type: "verbal", stated_effect: "distress", category: "sexual_harassment", severity: 2 (any sexual_harassment is severity 2 minimum, even a single verbal remark with no physical contact and no stated fear).
+2. "The driver threatened to sexually assault me and followed me home" -> contact_type: "verbal" (threat, not actual contact), stated_effect: "fear_for_safety", category: "sexual_harassment", severity: 2 (sexual_harassment is always severity 2 regardless of contact type; the explicit threat plus following someone home would also independently meet the fear-of-violence bar under Section 5).
 
 Return ONLY a JSON object, with no other text, no markdown code fences, and no explanation. Use exactly this format:
 
 {{
-  "category": one of ["physical_assault", "sexual_harassment", "stalking", "verbal_abuse", "reckless_driving", "other"],
+  "category": one of ["unsafe_driving", "verbal_harassment", "long_hauling", "physical_assault", "sexual_harassment", "stalking", "misc"],
   "contact_type": one of ["none", "verbal", "physical"],
   "stated_effect": one of ["none", "distress", "fear_for_safety"],
   "severity": integer, 0 (low), 1 (medium), or 2 (high),
   "confidence": float between 0.0 and 1.0,
-  "reasoning": a short string (max ~200 characters) stating which signals drove the severity call
+  "reasoning": a short string (max ~2000 characters) stating which signals drove the severity call
 }}
 
 If the text is too vague to classify confidently, still return your best guess for every field but reflect that uncertainty in a low confidence value."""
@@ -198,6 +204,16 @@ def validate_response(data):
         logging.error(f"AI response has invalid severity: {severity!r}")
         return None
 
+    # Enforce the "sexual_harassment is always severity 2" rule in code
+    # too, not just via the prompt — belt-and-braces in case the model
+    # ever drifts from the rubric on this specific category.
+    if category == "sexual_harassment" and severity != 2:
+        logging.info(
+            f"Overriding severity for sexual_harassment record from {severity} to 2 "
+            f"(model returned a lower severity than the rubric requires)"
+        )
+        severity = 2
+
     confidence = data["confidence"]
     if isinstance(confidence, bool) or not isinstance(confidence, (int, float)):
         logging.error(f"AI response has invalid confidence type: {confidence!r}")
@@ -283,7 +299,3 @@ if __name__ == "__main__":
     print(sample_record)
     print("\nAI result:")
     print(json.dumps(result, indent=2) if result else "None (processing failed)")
-
-
- 
-
