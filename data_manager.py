@@ -10,7 +10,7 @@ FIELDNAMES = [
     "USER_ID",
     "TRIP_ID",
     "LICENSE_PLATE",
-    "RAW_TEXT",
+    "REPORT_DETAILS", 
     "VALID_CATEGORIES",
     "SEVERITY",
     "CONFIDENCE",
@@ -19,24 +19,24 @@ FIELDNAMES = [
 
 def initialize_csv():
     #Initializes the CSV file with headers if it doesn't exist or is empty.
-    if not os.path.exists(CSV_FILE) or os.path.getsize(CSV_FILE) == 0:
+    if not os.path.exists(CSV_FILE) or os.path.getsize(CSV_FILE) == 0: #to check if the file exists and is not empty. / the not after if just means either condition can be true
         with open(CSV_FILE, mode='w', newline='', encoding='utf-8') as csvfile:
             writer = csv.DictWriter(csvfile, fieldnames=FIELDNAMES)
             writer.writeheader()
-        logging.info(f"CSV file '{CSV_FILE}' initialized with headers.")
+        logging.info(f"CSV file '{CSV_FILE}' initialized with headers.") #terminal based message to indicate that the CSV file has been initialized with headers or not.
     else:
-        logging.info(f"CSV file '{CSV_FILE}' already exists and is not empty.")
+        logging.info(f"CSV file '{CSV_FILE}' already exists and is not empty.") 
 
 
 def load_all_records():
     #Loads all records from the CSV file and returns them as a list of dictionaries.
-    initialize_csv()
+    initialize_csv() #just to ensure the file actually exists. If not, it will create.
     records = []
     with open(CSV_FILE, mode='r', newline='', encoding='utf-8') as csvfile:
-        reader = csv.DictReader(csvfile)
+        reader = csv.DictReader(csvfile) #built in CSV parser tool so it automatically pairs each value with the corresponding header in the CSV.
         for row in reader:
-            records.append(row)
-        return records
+            records.append(row) #takes each row and appends it to the records list.
+        return records #sends the list of records back to the calling function.
 
 def save_record(record_data):
     #Appends a new record to the CSV file.
@@ -47,13 +47,14 @@ def save_record(record_data):
 
     with open(CSV_FILE, mode='a', newline='', encoding='utf-8') as csvfile:
         writer = csv.DictWriter(csvfile, fieldnames=FIELDNAMES)
-        writer.writerow(full_record)
+        writer.writerow(full_record) #takes the full_record dictionary and writes it as a new row in the CSV file.
     return True
 
+#when AI and business rules have processed the incident, this function will update the record with the results.
 def update_record(incident_id, ai_results):
     #Updates an existing incident record in the CSV file based on the provided incident_id and AI results.
-    records = load_all_records()
-    updated = False
+    records = load_all_records() #loads all records from the CSV file into a list of dictionaries.
+    updated = False #if the record is found and updated, this will be set to True.
 
     for record in records:
         if record["INCIDENT_ID"] == str(incident_id):
@@ -72,6 +73,25 @@ def update_record(incident_id, ai_results):
 
     return updated
 
+#Delete function 
+def delete_record(incident_id):
+    #Deletes an incident record from the CSV file based on its ID
+    records = load_all_records()
+    initial_count = len(records)
+
+    #Keep every record except the one that matches the incident_id that we are deleting
+    filtered_records = [record for record in records if record["INCIDENT_ID"] != str(incident_id)]
+
+    #if the list is shorter, it means the record is deleted
+    if len(filtered_records) < initial_count:
+        with open(CSV_FILE, mode='w', newline='', encoding='utf-8') as csvfile:
+            writer = csv.DictWriter(csvfile, fieldnames=FIELDNAMES)
+            writer.writeheader()
+            writer.writerows(filtered_records)
+        return True
+    
+    return False
+
 def filter_by_severity(severity_level):
     #Filters records in the CSV file based on the provided severity level.
     records = load_all_records()
@@ -80,7 +100,7 @@ def filter_by_severity(severity_level):
 def filter_by_category(category):
     #Filters records in the CSV file based on the provided category.
     records = load_all_records()
-    return [record for record in records if category in record.get("VALID_CATEGORIES", "").lower() == target_category.lower()]
+    return [record for record in records if category.lower() in record.get("VALID_CATEGORIES", "").lower()]
 
 def get_records_by_user(user_id):
     #Retrieves all records associated with the provided user_id.
