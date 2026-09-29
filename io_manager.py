@@ -1,9 +1,10 @@
-import re
 from datetime import datetime
+import pandas as pd
+import re
 
 SINGAPORE_LICENSE_PLATE_REGEX = re.compile(r"\bS[A-Z]{0,3}\s*\d{1,4}\s*[A-Z]\b", re.IGNORECASE)
-TRIP_ID_PATTERN = re.compile(r"^[A-Za-z0-9]{5,20}$")
-USER_ID_PATTERN = re.compile(r"^[A-Za-z0-9_\-]{5,30}$")
+TRIP_ID_PATTERN = re.compile(r"^trip[A-Za-z0-9]{1,6}$", re.IGNORECASE)
+USER_ID_PATTERN = re.compile(r"^user[A-Za-z0-9]{1,6}$", re.IGNORECASE)
 
 REPORT_MIN_CHARACTERS = 10
 REPORT_MAX_CHARACTERS = 2000
@@ -94,15 +95,15 @@ def get_license_plate(report_details):
 
 def get_user_id():
     return get_valid_field(
-        "Please input your user ID: ",
+        "Please input your user ID (user123): ",
         validate_user_id,
-        "Invalid user ID. Use 3-30 characters: letters, numbers, underscore, or hyphen.",
+        "Invalid user ID. Use 3-30 characters: letters, numbers.",
     )
 
 
 def get_trip_id():
     return get_valid_field(
-        "Please input your Trip ID: ",
+        "Please input your Trip ID (trip123): ",
         validate_trip_id,
         "Invalid trip ID. Use 6-20 alphanumeric characters.",
     )
@@ -168,11 +169,11 @@ def build_report():
     # print(report_details)
     license_plate = get_license_plate(report_details)
     # print(f"Extracted license plate: {license_plate}")
-    category = get_category()
-    severity = get_severity()
-    confidence = get_confidence()
-    second_opinion_required = get_yes_no_field("Second opinion required? (y/n): ")
-    immediate_attention_required = get_yes_no_field("Immediate attention required? (y/n): ")
+    # category = get_category()
+    # severity = get_severity()
+    # confidence = get_confidence()
+    # second_opinion_required = get_yes_no_field("Second opinion required? (y/n): ")
+    # immediate_attention_required = get_yes_no_field("Immediate attention required? (y/n): ")
 
 
     record = {
@@ -180,26 +181,51 @@ def build_report():
         "trip_id": trip_id,
         "report_details": report_details,
         "license_plate": license_plate,
-        "category": category,
-        "severity": severity,
-        "confidence": confidence,
-        "second_opinion_required": second_opinion_required,
-        "immediate_attention_required": immediate_attention_required,
+        # "category": category,
+        # "severity": severity,
+        # "confidence": confidence,
+        # "second_opinion_required": second_opinion_required,
+        # "immediate_attention_required": immediate_attention_required,
         "timestamp": datetime.now().isoformat(timespec="seconds"),
     }
     
     print("Report captured.\n")
     return record
 
-def report_summary(record):
+def report_summary(records):
+    if isinstance(records, dict):
+        records = [records]
+
+    short_fields = [
+        "user_id", "trip_id", "license_plate",
+        "category", "severity", "confidence",
+        "second_opinion_required", "immediate_attention_required",
+        "timestamp",
+    ]
+
+    df = pd.DataFrame(records)
+
+    # Fix literal "\n" from any JSON-ish source (harmless if none present)
+    df["report_details"] = df["report_details"].str.replace("\\n", "\n", regex=False)
+
     print("\nIncident Report Summary")
-    print(f"User ID: {record['user_id']}")
-    print(f"Trip ID: {record['trip_id']}")
-    print(f"Report Details: {record['report_details']}")
-    print(f"License Plate: {record['license_plate']}")
-    print(f"Category: {record['category']}")
-    print(f"Severity: {record['severity']}")
-    print(f"Confidence: {record['confidence']}")
+    print(df[short_fields].to_string(index=False))
+
+    print("\n" + "=" * 70)
+    for i, row in df.iterrows():
+        print(f"\n[{i + 1}] Report Details — user_id={row['user_id']}, trip_id={row['trip_id']}")
+        print(row["report_details"])
+        print("-" * 70)
+
+# def old_report_summary(record):
+#     print("\nIncident Report Summary")
+#     print(f"User ID: {record['user_id']}")
+#     print(f"Trip ID: {record['trip_id']}")
+#     print(f"Report Details: {record['report_details']}")
+#     print(f"License Plate: {record['license_plate']}")
+#     print(f"Category: {record['category']}")
+#     print(f"Severity: {record['severity']}")
+#     print(f"Confidence: {record['confidence']}")
 
 if __name__ == "__main__":
     report = build_report()
