@@ -15,6 +15,8 @@ FIELDNAMES = [
     "SEVERITY",
     "CONFIDENCE",
     "STATUS"
+    "SECOND_OPINON REQUIRED"
+    "IMMEDIATE_ATTENTION_REQUIRED"
 ]
 
 def initialize_csv():
@@ -57,7 +59,7 @@ def update_record(incident_id, ai_results):
     updated = False #if the record is found and updated, this will be set to True.
 
     for record in records:
-        if record["INCIDENT_ID"] == str(incident_id):
+        if record["INCIDENT_ID"] == str(incident_id): #converts the target ID to a string to prevent type mismatch bugs (e.g., matching integer 123 against string "123") 
             record["VALID_CATEGORIES"] = ai_results.get("VALID_CATEGORIES", record["VALID_CATEGORIES"])
             record["SEVERITY"] = ai_results.get("SEVERITY", record["SEVERITY"])
             record["CONFIDENCE"] = ai_results.get("CONFIDENCE", record["CONFIDENCE"])
@@ -75,11 +77,11 @@ def update_record(incident_id, ai_results):
 
 #Delete function 
 def delete_record(incident_id):
-    #Deletes an incident record from the CSV file based on its ID
+    #deletes an incident record from the CSV file based on its ID
     records = load_all_records()
-    initial_count = len(records)
+    initial_count = len(records) #counts how many rows exist before deletion.
 
-    #Keep every record except the one that matches the incident_id that we are deleting
+    #keep every record except the one that matches the incident_id that we are deleting
     filtered_records = [record for record in records if record["INCIDENT_ID"] != str(incident_id)]
 
     #if the list is shorter, it means the record is deleted
