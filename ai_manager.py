@@ -19,18 +19,7 @@ MODEL = "gemini-3.6-flash"
 REQUEST_TIMEOUT_MS = 60_000  # 60 seconds
 MAX_RETRIES = 3
 
-
-def _make_client(key):
-    if not key:
-        return None
-    # AI Studio keys start with "AIza"; other formats (like an "AQ." key)
-    # are newer AI Studio keys and need vertexai=True to authenticate correctly.
-    if key.startswith("AIza"):
-        return genai.Client(api_key=key)
-    return genai.Client(vertexai=True, api_key=key)
-
-
-_client = _make_client(GEMINI_API_KEY)
+_client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
 
 if _client is None:
     raise RuntimeError(
