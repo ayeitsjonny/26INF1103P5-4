@@ -19,16 +19,23 @@ MODEL = "gemini-3.6-flash"
 REQUEST_TIMEOUT_MS = 60_000  # 60 seconds
 MAX_RETRIES = 3
 
+
 def _make_client(key):
     if not key:
         return None
     # AI Studio keys start with "AIza"; other formats (like an "AQ." key)
-    # are Vertex AI keys and need vertexai=True
+    # are newer AI Studio keys and need vertexai=True to authenticate correctly.
     if key.startswith("AIza"):
         return genai.Client(api_key=key)
     return genai.Client(vertexai=True, api_key=key)
 
-_client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
+
+_client = _make_client(GEMINI_API_KEY)
+
+if _client is None:
+    raise RuntimeError(
+        "GEMINI_API_KEY is not set. Add it to your .env file before running ai_manager."
+    )
 
 VALID_CATEGORIES = {
     "unsafe_driving",
@@ -85,7 +92,7 @@ Step 2 — assign severity using this rubric:
 - severity 1 (medium): unsafe_driving, verbal_harassment, threats, indecent remarks not of a sexual nature, or unwanted contact without physical assault — matches POHA Section 3 (intentional harassment). Causes distress or fear without physical contact.
 - severity 0 (low): general service complaints, rudeness, fare disputes — no harassment under POHA.
 
-Step 3 — assign category as the closest match: unsafe_driving, verbal_harassment, long_hauling, physical_assault, sexual_harassment, stalking, or other.
+Step 3 — assign category as the closest match: unsafe_driving, verbal_harassment, long_hauling, physical_assault, sexual_harassment, stalking, or misc.
 
 Two worked examples for calibration:
 1. "The driver made an inappropriate sexual comment" -> contact_type: "verbal", stated_effect: "distress", category: "sexual_harassment", severity: 2 (any sexual_harassment is severity 2 minimum, even a single verbal remark with no physical contact and no stated fear).
@@ -116,10 +123,6 @@ def call_api(prompt):
     returning a clean JSON object, though parse_response() still has
     to handle cases where it doesn't.
     """
-    if _client is None:
-        logging.error("GEMINI_API_KEY not set — cannot call API")
-        return None
-
     try:
         response = _client.models.generate_content(
             model=MODEL,
@@ -240,7 +243,7 @@ def validate_response(data):
 def process(record):
     """
     Run one record through the full AI pipeline: build prompt, call
-    API, parse, validate. Retries once on failure before giving up.
+    API, parse, validate. Retries on failure before giving up.
 
     Returns a dict of AI fields (category, contact_type, stated_effect,
     severity, confidence, reasoning) to merge into the record, or None
@@ -274,7 +277,7 @@ def call_api_mock(prompt):
     Returns a fixed, valid response regardless of prompt content.
     """
     return json.dumps({
-        "category": "verbal_abuse",
+        "category": "verbal_harassment",
         "contact_type": "verbal",
         "stated_effect": "distress",
         "severity": 1,
