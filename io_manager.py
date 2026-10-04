@@ -222,31 +222,31 @@ def report_summary(records):
 
     print(f"\nIncident Report Summary — {len(records)} report(s)")
     print(summary.to_string(index=False))
-    print("\nReports by user:")
-    print(summary["user_id"].value_counts(sort=False).to_string())
+    # print("\nReports by user:")
+    # print(summary["user_id"].value_counts(sort=False).to_string())
 
-    print("\n" + "=" * 70)
-    for index, record in enumerate(records, start=1):
-        user_id = record.get("user_id", "unknown")
-        trip_id = record.get("trip_id", "unknown")
-        details = (record.get("report_details") or "").replace("\\n", "\n")
-        print(f"\n[{index}] Report Details — user_id={user_id}, trip_id={trip_id}")
-        print(details)
-        print("-" * 70)
+    # print("\n" + "=" * 70)
+    # for index, record in enumerate(records, start=1):
+    #     print(f"\n[{index}]")
+    #     display_record(record)
+    #     print("-" * 70)
 
-# def old_report_summary(record):
-#     print("\nIncident Report Summary")
-#     print(f"User ID: {record['user_id']}")
-#     print(f"Trip ID: {record['trip_id']}")
-#     print(f"Report Details: {record['report_details']}")
-#     print(f"License Plate: {record['license_plate']}")
-#     print(f"Category: {record['category']}")
-#     print(f"Severity: {record['severity']}")
-#     print(f"Confidence: {record['confidence']}")
+def display_record(record):
+    print("=" * 50)
+    print("\nIncident Report Record")
+    print(f"User ID: {record['user_id']}")
+    print(f"Trip ID: {record['trip_id']}")
+    print(f"Report Details: {record['report_details']}")
+    print(f"License Plate: {record['license_plate']}")
+    # print(f"Category: {record['category']}")
+    # print(f"Severity: {record['severity']}")
+    # print(f"Confidence: {record['confidence']}")
+    print("=" * 50)
 
 if __name__ == "__main__":
     try:
         report = build_report()
+        display_record(report)
         report_summary(report)
     except EOFError:
         print("\nInput ended unexpectedly. Report cancelled.")
