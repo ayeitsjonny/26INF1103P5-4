@@ -2,10 +2,12 @@ from datetime import datetime
 import pandas as pd
 import re
 
+#Regex for User,Trip,License plate
 SINGAPORE_LICENSE_PLATE_REGEX = re.compile(r"\bS[A-Z]{0,3}\s*\d{1,4}\s*[A-Z]\b", re.IGNORECASE)
 TRIP_ID_PATTERN = re.compile(r"^trip[A-Za-z0-9]{1,6}$", re.IGNORECASE)
 USER_ID_PATTERN = re.compile(r"^user[A-Za-z0-9]{1,6}$", re.IGNORECASE)
 
+#Sets minimum and maximum require characters for report
 REPORT_MIN_CHARACTERS = 10
 REPORT_MAX_CHARACTERS = 2000
 
@@ -16,13 +18,13 @@ SEVERITY_MIN, SEVERITY_MAX = 0, 2
 
 YES_NO = {"y": True, "yes": True, "n": False, "no": False}
 
-
+#Banner
 def print_banner():
     print("=" * 40)
     print("       AI-ASSISTED SAFETY REPORTING")
     print("=" * 40)
 
-
+#Ensures input field is not empty else reject
 def non_empty_input(prompt):
     while True:
         user_input = input(prompt).strip()
@@ -82,7 +84,7 @@ def validate_confidence(confidence):
 def validate_yes_no(answer):
     return YES_NO.get(answer.strip().lower())
 
-
+#Checks for license plate inside the report details and ensures it's in SXX1234A format
 def get_license_plate(report_details):
     match = SINGAPORE_LICENSE_PLATE_REGEX.search(report_details)
     while not match:
@@ -97,7 +99,7 @@ def get_user_id():
     return get_valid_field(
         "Please input your user ID (user123): ",
         validate_user_id,
-        "Invalid user ID. Use 3-30 characters: letters, numbers.",
+        "Invalid user ID. It must start with 'user' followed by 1-6 letters or numbers.",
     )
 
 
@@ -105,7 +107,7 @@ def get_trip_id():
     return get_valid_field(
         "Please input your Trip ID (trip123): ",
         validate_trip_id,
-        "Invalid trip ID. Use 6-20 alphanumeric characters.",
+        "Invalid trip ID. It must start with 'trip' followed by 1-6 letters or numbers.",
     )
 
 
@@ -120,8 +122,10 @@ def get_report_details():
             if not line:
                 break
             report_lines.append(line)
-
-        report_details = "\n".join(report_lines).strip()
+        
+        # report_details = "\n".join(report_lines).strip()
+        """Ensures report details are sanatised to escape char such as \n can't be used"""
+        report_details = sanitize_report_details("\n".join(report_lines)) 
         if validate_report_details(report_details) is not None:
             return report_details
 
@@ -192,29 +196,42 @@ def build_report():
     print("Report captured.\n")
     return record
 
+def sanitize_report_details(text):
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
+    return re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", text).strip()
+
 def report_summary(records):
     if isinstance(records, dict):
         records = [records]
+        
+    if not records:
+        print("\nIncident Report Summary — 0 reports")
+        print("No reports to display.")
+        return
 
-    short_fields = [
-        "user_id", "trip_id", "license_plate",
-        "category", "severity", "confidence",
-        "second_opinion_required", "immediate_attention_required",
-        "timestamp",
+    summary_fields = [
+        "user_id", "trip_id", "license_plate", "category", "severity",
+        "confidence", "second_opinion_required",
+        "immediate_attention_required", "timestamp",
     ]
+    summary_records = [
+        {field: record.get(field, "unknown") for field in summary_fields}
+        for record in records
+    ]
+    summary = pd.DataFrame(summary_records)
 
-    df = pd.DataFrame(records)
-
-    # Fix literal "\n" from any JSON-ish source (harmless if none present)
-    df["report_details"] = df["report_details"].str.replace("\\n", "\n", regex=False)
-
-    print("\nIncident Report Summary")
-    print(df[short_fields].to_string(index=False))
+    print(f"\nIncident Report Summary — {len(records)} report(s)")
+    print(summary.to_string(index=False))
+    print("\nReports by user:")
+    print(summary["user_id"].value_counts(sort=False).to_string())
 
     print("\n" + "=" * 70)
-    for i, row in df.iterrows():
-        print(f"\n[{i + 1}] Report Details — user_id={row['user_id']}, trip_id={row['trip_id']}")
-        print(row["report_details"])
+    for index, record in enumerate(records, start=1):
+        user_id = record.get("user_id", "unknown")
+        trip_id = record.get("trip_id", "unknown")
+        details = (record.get("report_details") or "").replace("\\n", "\n")
+        print(f"\n[{index}] Report Details — user_id={user_id}, trip_id={trip_id}")
+        print(details)
         print("-" * 70)
 
 # def old_report_summary(record):
@@ -228,5 +245,8 @@ def report_summary(records):
 #     print(f"Confidence: {record['confidence']}")
 
 if __name__ == "__main__":
-    report = build_report()
-    report_summary(report)
+    try:
+        report = build_report()
+        report_summary(report)
+    except EOFError:
+        print("\nInput ended unexpectedly. Report cancelled.")
