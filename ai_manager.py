@@ -10,23 +10,46 @@ from google import genai
 from google.genai import types
 from google.genai import errors as genai_errors
 
+# ============================================================
+# SETUP — runs once when this file is imported by main.py
+# ============================================================
+
 # Load .env from the same folder as this file; override=True so the .env
 # value wins over any stale key already set in Windows/terminal.
 load_dotenv(Path(__file__).parent / ".env", override=True)
 
 # strip() and quote-stripping guard against stray spaces/quotes in .env
 GEMINI_API_KEY = (os.environ.get("GEMINI_API_KEY") or "").strip().strip('"').strip("'") or None
-MODEL = "gemini-3.6-flash"
-REQUEST_TIMEOUT_MS = 60_000  # 60 seconds
-MAX_RETRIES = 3
 
+# IMPORTANT: if you swap models, check the new model's name on Google AI
+# Studio first — an outdated/retired model name causes a 404, not a 401,
+# which looks like an auth problem but isn't.
+MODEL = "gemini-3.6-flash"
+
+REQUEST_TIMEOUT_MS = 60_000  # 60 seconds — newer models can be slow, don't lower this casually
+MAX_RETRIES = 3               # total extra attempts after the first try (so 4 attempts max)
+
+# Build the Gemini client. If there's no key, _client stays None.
 _client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
 
+# IMPORTANT: this is a hard stop. If GEMINI_API_KEY isn't set in .env,
+# importing this file (e.g. `import ai_manager` in main.py) crashes
+# immediately with a clear error, instead of silently returning None
+# from every API call later. This is intentional — we want the whole
+# pipeline to refuse to run without a key, not quietly send every
+# record to manual review.
 if _client is None:
     raise RuntimeError(
         "GEMINI_API_KEY is not set. Add it to your .env file before running ai_manager."
     )
 
+# IMPORTANT: these three sets are the single source of truth for what
+# counts as a "valid" AI response. If the AI returns anything outside
+# these values, validate_response() rejects it and the record gets
+# retried / eventually sent to manual review. If you change the
+# category list here, you MUST also update the matching list inside
+# build_prompt()'s prompt text below — they are not linked
+# automatically, so keep them in sync by hand.
 VALID_CATEGORIES = {
     "unsafe_driving",
     "verbal_harassment",
@@ -40,6 +63,8 @@ VALID_CATEGORIES = {
 VALID_CONTACT_TYPES = {"none", "verbal", "physical"}
 VALID_STATED_EFFECTS = {"none", "distress", "fear_for_safety"}
 
+# All errors/info from this module go to ai_manager.log, not the
+# console. Check this file first when something fails silently.
 logging.basicConfig(
     filename="ai_manager.log",
     level=logging.INFO,
@@ -69,6 +94,10 @@ def build_prompt(record: dict) -> str:
     """
     report_text = record.get("report_text", "")
 
+    # IMPORTANT: this whole f-string IS the prompt sent to Gemini.
+    # The JSON schema described near the end must match VALID_CATEGORIES /
+    # VALID_CONTACT_TYPES / VALID_STATED_EFFECTS above exactly, since
+    # validate_response() will reject anything that doesn't match.
     prompt = f"""You are classifying a safety report submitted on a ride-hailing platform, using a fixed rubric based on Singapore's Protection from Harassment Act (POHA). Do not make a subjective overall judgment — apply the criteria below mechanically.
 
 Report text: "{report_text}"
@@ -118,7 +147,7 @@ def call_api(prompt: str) -> Optional[str]:
             model=MODEL,
             contents=prompt,
             config=types.GenerateContentConfig(
-                temperature=0,
+                temperature=0,  # deterministic output — same report should classify the same way every time
                 response_mime_type="application/json",
                 http_options=types.HttpOptions(timeout=REQUEST_TIMEOUT_MS),
             ),
@@ -129,9 +158,15 @@ def call_api(prompt: str) -> Optional[str]:
         # Covers connection failures, timeouts, rate limits, and bad
         # responses from Google's side — the SDK folds these into one
         # exception type with a status code attached.
+        # NOTE: check ai_manager.log for the status code when debugging —
+        # 401/403 = auth problem, 404 = wrong model name, 429 = rate
+        # limit, 503/504 = Google's servers are busy/slow (temporary).
         logging.error(f"Gemini API error (status={getattr(e, 'code', '?')}): {e}")
         return None
     except (KeyError, IndexError, ValueError, AttributeError) as e:
+        # Catches cases where the SDK's response object doesn't have the
+        # shape we expect (e.g. missing .text) — rare, but we don't want
+        # an unexpected shape to crash the whole pipeline.
         logging.error(f"Unexpected Gemini response shape: {e}")
         return None
 
@@ -147,6 +182,9 @@ def parse_response(raw: Optional[str]) -> Optional[dict]:
     if raw is None:
         return None
 
+    # Even with response_mime_type="application/json", the model can
+    # occasionally wrap the JSON in ```json fences or add stray text.
+    # This regex grabs just the {...} block, ignoring anything around it.
     match = re.search(r"\{.*\}", raw, re.DOTALL)
     if not match:
         logging.error(f"No JSON object found in AI response: {raw!r}")
@@ -168,6 +206,9 @@ def validate_response(data: Optional[dict]) -> Optional[dict]:
     if data is None:
         return None
 
+    # IMPORTANT: this is the full contract the AI's JSON must satisfy.
+    # If you add/remove a field from the prompt's JSON schema, update
+    # this set too, or valid responses will get rejected as "missing keys".
     required_keys = {
         "category", "contact_type",
         "stated_effect", "severity", "confidence", "reasoning",
@@ -193,13 +234,19 @@ def validate_response(data: Optional[dict]) -> Optional[dict]:
         return None
 
     severity = data["severity"]
+    # isinstance(severity, bool) check matters because in Python,
+    # bool is a subclass of int — without this check, True/False would
+    # silently pass an "isinstance(severity, int)" test.
     if isinstance(severity, bool) or not isinstance(severity, int) or severity not in (0, 1, 2):
         logging.error(f"AI response has invalid severity: {severity!r}")
         return None
 
-    # Enforce the "sexual_harassment is always severity 2" rule in code
-    # too, not just via the prompt — belt-and-braces in case the model
-    # ever drifts from the rubric on this specific category.
+    # IMPORTANT — POLICY RULE: Enforce the "sexual_harassment is always
+    # severity 2" rule in code too, not just via the prompt — belt-and-
+    # braces in case the model ever drifts from the rubric on this
+    # specific category. This OVERRIDES whatever severity the model
+    # returned if the category is sexual_harassment — it does not ask
+    # the model again, it just forces the value.
     if category == "sexual_harassment" and severity != 2:
         logging.info(
             f"Overriding severity for sexual_harassment record from {severity} to 2 "
@@ -220,6 +267,8 @@ def validate_response(data: Optional[dict]) -> Optional[dict]:
         logging.error(f"AI response has invalid reasoning: {reasoning!r}")
         return None
 
+    # Only returns a clean, fully-validated dict — nothing before this
+    # point can leak an unchecked field through to main.py.
     return {
         "category": category,
         "contact_type": contact_type,
@@ -241,6 +290,10 @@ def process(record: dict) -> Optional[dict]:
     logic_manager is responsible for deciding what happens to a record
     with a None AI result (e.g. route to manual review).
     """
+    # IMPORTANT — this is the ONLY function other files should call.
+    # Everything above (build_prompt, call_api, parse_response,
+    # validate_response) is an internal step — main.py only ever calls
+    # ai_manager.process(record).
     attempts = 0
     while attempts <= MAX_RETRIES:
         prompt = build_prompt(record)
@@ -254,8 +307,11 @@ def process(record: dict) -> Optional[dict]:
         attempts += 1
         if attempts <= MAX_RETRIES:
             logging.info(f"Retrying AI call for record (attempt {attempts + 1})")
-            time.sleep(4 * attempts)  # waits 4s, 8s, 12s between retries
+            time.sleep(4 * attempts)  # waits 4s, 8s, 12s between retries — backs off longer each time
 
+    # If every attempt failed, return None. Caller (main.py, via
+    # logic_manager) is responsible for routing this to manual review —
+    # this function does not decide that itself.
     logging.error(f"AI processing failed after {MAX_RETRIES + 1} attempt(s) for record: {record}")
     return None
 
@@ -266,6 +322,10 @@ def call_api_mock(prompt: str) -> str:
     when no live Gemini API connection is available or wanted.
     Returns a fixed, valid response regardless of prompt content.
     """
+    # NOTE: this always returns the SAME result no matter what the
+    # report says — it only proves the plumbing works end-to-end, it
+    # does NOT test classification accuracy. Don't rely on it to judge
+    # whether the rubric logic is correct.
     return json.dumps({
         "category": "verbal_harassment",
         "contact_type": "verbal",
@@ -276,6 +336,12 @@ def call_api_mock(prompt: str) -> str:
     })
 
 
+# ============================================================
+# Lets you test this file on its own: `python ai_manager.py`
+# runs one sample record through the mock, without touching
+# the real API or needing a valid key beyond the hard check
+# at the top of this file.
+# ============================================================
 if __name__ == "__main__":
     sample_record = {
         "report_text": "The driver made an inappropriate sexual comment during the ride.",
