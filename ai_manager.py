@@ -4,6 +4,7 @@ import re
 import time
 import logging
 from pathlib import Path
+from typing import Optional
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
@@ -46,7 +47,7 @@ logging.basicConfig(
 )
 
 
-def build_prompt(record):
+def build_prompt(record: dict) -> str:
     """
     Build a prompt from an io_manager record dict.
 
@@ -103,7 +104,7 @@ If the text is too vague to classify confidently, still return your best guess f
     return prompt
 
 
-def call_api(prompt):
+def call_api(prompt: str) -> Optional[str]:
     """
     Send prompt to the Gemini API. Returns the raw text content of the
     response, or None on any failure. Never raises.
@@ -135,7 +136,7 @@ def call_api(prompt):
         return None
 
 
-def parse_response(raw):
+def parse_response(raw: Optional[str]) -> Optional[dict]:
     """
     Extract and parse a JSON object out of the raw API text.
 
@@ -158,7 +159,7 @@ def parse_response(raw):
         return None
 
 
-def validate_response(data):
+def validate_response(data: Optional[dict]) -> Optional[dict]:
     """
     Check that a parsed response has the required keys, correct types,
     and values in range. Returns the validated dict on success, None
@@ -229,7 +230,7 @@ def validate_response(data):
     }
 
 
-def process(record):
+def process(record: dict) -> Optional[dict]:
     """
     Run one record through the full AI pipeline: build prompt, call
     API, parse, validate. Retries on failure before giving up.
@@ -259,7 +260,7 @@ def process(record):
     return None
 
 
-def call_api_mock(prompt):
+def call_api_mock(prompt: str) -> str:
     """
     Drop-in replacement for call_api() during development or testing,
     when no live Gemini API connection is available or wanted.
