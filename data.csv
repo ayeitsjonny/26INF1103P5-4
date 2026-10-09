@@ -1,0 +1,13 @@
+report_id,user_id,trip_id,license_plate,timestamp,report_details,category,severity,confidence
+R001,U1001,T5001,SLA1234A,2026-09-15 08:30:00,"Driver shouted at me after I asked to stop at the correct location.",verbal_harassment,1,0.91
+R002,U1002,T5002,SKB5678C,2026-09-15 09:10:00,"Driver repeatedly sent threatening messages after the trip ended.",stalking,2,0.96
+R003,U1003,T5003,SCF2468D,2026-09-15 10:45:00,"Driver made unwanted sexual comments during the ride.",sexual_harassment,2,0.88
+R004,U1004,T5004,SHG1357E,2026-09-15 12:20:00,"The car had a strong smell and the driver drove too fast.",unsafe_driving,1,0.74
+R005,U1005,T5005,SLM8642F,2026-09-15 14:00:00,"I am not sure whether the driver intentionally took a longer route.",route_issue,0,0.32
+R006,U1001,T5006,SLA1234A,2026-09-16 08:15:00,"The driver ignored my request to end the trip.",verbal_harassment,1,0.82
+R007,U1001,T5007,SLA1234A,2026-09-16 11:40:00,"Driver was rude and refused to provide the receipt.",service_complaint,0,0.89
+R008,U1001,T5008,SLA1234A,2026-09-17 07:50:00,"The vehicle arrived late and the driver argued with me.",service_complaint,0,0.86
+R009,U1001,T5009,SLA1234A,2026-09-17 18:25:00,"Driver used insulting language during the journey.",verbal_harassment,1,0.79
+R010,U1001,T5010,SLA1234A,2026-09-18 13:05:00,"I felt uncomfortable because the driver kept asking personal questions.",boundary_violation,1,0.68
+R011,U1001,T5011,SLA1234A,2026-09-19 16:30:00,"Driver ended the trip before reaching the destination.",trip_issue,1,0.77
+R012,U1006,T5012,SNX9753G,2026-09-20 20:10:00,"Driver physically grabbed my arm when I tried to leave the vehicle.",physical_assault,2,0.99
