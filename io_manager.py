@@ -165,6 +165,23 @@ def get_yes_no_field(prompt):
         "Please answer y or n.",
     )
 
+#temporary function to send to ai for testing
+def send_to_ai():
+    user_id = get_user_id()
+    trip_id = get_trip_id()
+    report_details = get_report_details()
+    license_plate = get_license_plate(report_details)
+    
+    record = {
+        "user_id": user_id,
+        "trip_id": trip_id,
+        "report_details": report_details,
+        "license_plate": license_plate,
+        "timestamp": datetime.now().isoformat(timespec="seconds"),
+    }
+
+    return record
+
 #Function to build the report and return a dict for ai manager
 def build_report():
     print_banner()

@@ -10,6 +10,8 @@ from google import genai
 from google.genai import types
 from google.genai import errors as genai_errors
 
+import io_manager
+
 # ============================================================
 # SETUP — runs once when this file is imported by main.py
 # ============================================================
@@ -76,7 +78,7 @@ def build_prompt(record: dict) -> str:
     """
     Build a prompt from an io_manager record dict.
 
-    Expects record to contain at least 'report_text'. Other fields
+    Expects record to contain at least 'report_details'. Other fields
     (trip_id, user_id, plate, timestamp) are not needed by the AI and
     are not sent, since the AI is classifying the free text, not the
     metadata.
@@ -92,7 +94,7 @@ def build_prompt(record: dict) -> str:
     sexual harassment is treated as high severity regardless of
     whether contact was physical, given its sensitivity.
     """
-    report_text = record.get("report_text", "")
+    report_details = record.get("report_details", "")
 
     # IMPORTANT: this whole f-string IS the prompt sent to Gemini.
     # The JSON schema described near the end must match VALID_CATEGORIES /
@@ -100,7 +102,7 @@ def build_prompt(record: dict) -> str:
     # validate_response() will reject anything that doesn't match.
     prompt = f"""You are classifying a safety report submitted on a ride-hailing platform, using a fixed rubric based on Singapore's Protection from Harassment Act (POHA). Do not make a subjective overall judgment — apply the criteria below mechanically.
 
-Report text: "{report_text}"
+Report text: "{report_details}"
 
 Step 1 — extract two signals from the text:
 - contact_type: "physical" if any unwanted physical contact is described, "verbal" if the harm is spoken/written only (comments, threats, messages), "none" if no harassment is actually described.
@@ -335,7 +337,6 @@ def call_api_mock(prompt: str) -> str:
         "reasoning": "Verbal complaint only, single incident, no stated fear for safety.",
     })
 
-
 # ============================================================
 # Lets you test this file on its own: `python ai_manager.py`
 # runs one sample record through the mock, without touching
@@ -343,18 +344,20 @@ def call_api_mock(prompt: str) -> str:
 # at the top of this file.
 # ============================================================
 if __name__ == "__main__":
-    sample_record = {
-        "report_text": "The driver made an inappropriate sexual comment during the ride.",
-    }
+    # sample_record = {
+    #     "report_details": "The driver made an inappropriate sexual comment during the ride.",
+    # }
+
+    record_details = io_manager.send_to_ai()
 
     original_call_api = call_api
-    globals()["call_api"] = call_api_mock  # swap in the mock for this run
+    #globals()["call_api"] = call_api_mock  # swap in the mock for this run
 
-    result = process(sample_record)
+    result = process(record_details)
 
     globals()["call_api"] = original_call_api  # restore, in case this gets imported later
 
     print("Input record:")
-    print(sample_record)
+    print(record_details)
     print("\nAI result:")
     print(json.dumps(result, indent=2) if result else "None (processing failed)")
