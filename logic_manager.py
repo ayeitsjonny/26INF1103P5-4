@@ -15,7 +15,7 @@
 #     "reasoning": ""
 # }
 
-# Hard coded info
+# Hard coded info for testing, from ai manager output, passed down to logic manager, will be sent to data manager for storage
 # trip_id + user_id + report_details + license_id
 trip_id = "1234"#string
 user_id = "A9006111"#string
@@ -27,41 +27,39 @@ sample1 = {
 
     "category": "physical_assault",
     "severity": 2,
-    "confidence": 0.52
+    "confidence": 0.52,
+    "report": "THere was an imposter amongus",
+    "trip_id": 1234,
+    "user_id": "A9006111"
+
  }
 
-#queue={low_confidence, emergency_response, normal_report}
+def getAi_output(assess_object):
+    category = assess_object["category"] #variable category contains the category of harrassment from ai output
+    severity = assess_object["severity"]    #variable severity contains the category of harrassment from ai output
+    confidence = assess_object["confidence"]    #variable category contains the category of harrassment from ai output
 
-# # Test 2: Low confidence
-# sample2 = {
-#     "category": "verbal_abuse",
-#     "severity": 1,
-#     "confidence": 0.35
-# }
-
-# # Test 3: Normal report
-# sample3 = {
-#     "category": "reckless_driving",
-#     "severity": 1,
-#     "confidence": 0.87
-# }
+    return 
 
 
-def safety_escalation(assess_object):
-    category = assess_object["category"]
-    severity = assess_object["severity"]
-    confidence = assess_object["confidence"]
+
+
+def safety_escalation(assess_object): #get ai output
+    category = assess_object["category"] #variable category contains the category of harrassment from ai output
+    severity = assess_object["severity"]    #variable severity contains the category of harrassment from ai output
+    confidence = assess_object["confidence"]    #variable category contains the category of harrassment from ai output
 
     emergency_categories = (
     "physical_assault",
     "sexual_harassment",
-    "stalking"
+    "stalking",
     )
 
-    if severity >= 2 and category in emergency_categories and confidence >= 0.8:
+    if severity >= 2 and category in emergency_categories and confidence >= 0.5:
         queue = "emergency_response"
         flag_driver = 'Flagged'
         second_opinion = False #boolean
+        print("Emergency response required for category:", category, "with severity:", severity, "and confidence:", confidence)
         return queue, flag_driver, second_opinion
 
 def confidence_escalation(assess_object):
@@ -71,6 +69,7 @@ def confidence_escalation(assess_object):
         flag_driver = 'Not_Flagged'
         second_opinion = True #boolean
         return queue, second_opinion, flag_driver
+
 
 def default_escalation(assess_object):
     severity = assess_object["severity"]
@@ -85,8 +84,8 @@ def default_escalation(assess_object):
         queue= "standard triage"
         flag_driver = 'Not_Flagged'
         second_opinion = False #boolean
+        print("Standard triage for category:", category, "with severity:", severity, "and confidence:", confidence)
         return queue, flag_driver, second_opinion
-
 
 result = safety_escalation(sample1)
 result = default_escalation(sample1)
