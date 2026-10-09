@@ -18,13 +18,13 @@ SEVERITY_MIN, SEVERITY_MAX = 0, 2
 
 YES_NO = {"y": True, "yes": True, "n": False, "no": False}
 
-#Banner
+#Banner before the user starts the report
 def print_banner():
     print("=" * 40)
     print("       AI-ASSISTED SAFETY REPORTING")
     print("=" * 40)
 
-#Ensures input field is not empty else reject
+#Ensures input field is not empty else reject user input
 def non_empty_input(prompt):
     while True:
         user_input = input(prompt).strip()
@@ -32,7 +32,7 @@ def non_empty_input(prompt):
             return user_input
         print("Input cannot be empty. Please try again.")
 
-
+#Prompt until the input passes the supplied validation function
 def get_valid_field(prompt, validator, error_msg):
     while True:
         raw = non_empty_input(prompt)
@@ -43,17 +43,17 @@ def get_valid_field(prompt, validator, error_msg):
 
 
 # --- validators ---
-
+#Ensure that the tripid is in the required format
 def validate_trip_id(trip_id):
     match = TRIP_ID_PATTERN.match(trip_id)
     return match.group() if match else None
 
-
+#Ensures that userid is in the required format
 def validate_user_id(user_id):
     match = USER_ID_PATTERN.match(user_id)
     return match.group() if match else None
 
-
+#Check that the report is within the allowed length before saving it
 def validate_report_details(report_details):
     if REPORT_MIN_CHARACTERS <= len(report_details) <= REPORT_MAX_CHARACTERS:
         return report_details
@@ -82,10 +82,12 @@ def validate_confidence(confidence):
 
 
 def validate_yes_no(answer):
+    """Map yes/no answers to booleans so the app can store a simple flag."""
     return YES_NO.get(answer.strip().lower())
 
 #Checks for license plate inside the report details and ensures it's in SXX1234A format
 def get_license_plate(report_details):
+    """Extract the vehicle plate from the incident text and normalize it to SG format."""
     match = SINGAPORE_LICENSE_PLATE_REGEX.search(report_details)
     while not match:
         report_details = input("No license plate found. Please enter the license in (SXX1234A): ")
@@ -94,15 +96,15 @@ def get_license_plate(report_details):
 
 
 # --- field getters ---
-
+#Collect and validate the reporting user's ID
 def get_user_id():
     return get_valid_field(
         "Please input your user ID (user123): ",
         validate_user_id,
         "Invalid user ID. It must start with 'user' followed by 1-6 letters or numbers.",
     )
-
-
+    
+#Collect and validate the trip identifier tied to the incident
 def get_trip_id():
     return get_valid_field(
         "Please input your Trip ID (trip123): ",
@@ -112,6 +114,7 @@ def get_trip_id():
 
 
 def get_report_details():
+    """Prompt the user for the incident narrative and sanitize it before validation."""
     while True:
         print("Please tell us what happened during the incident.")
         print("Press Enter on an empty line when you have finished.")
@@ -122,10 +125,8 @@ def get_report_details():
             if not line:
                 break
             report_lines.append(line)
-        
-        # report_details = "\n".join(report_lines).strip()
-        """Ensures report details are sanatised to escape char such as \n can't be used"""
-        report_details = sanitize_report_details("\n".join(report_lines)) 
+
+        report_details = sanitize_report_details("\n".join(report_lines))
         if validate_report_details(report_details) is not None:
             return report_details
 
@@ -164,46 +165,35 @@ def get_yes_no_field(prompt):
         "Please answer y or n.",
     )
 
-
+#Function to build the report and return a dict for ai manager
 def build_report():
     print_banner()
     user_id = get_user_id()
     trip_id = get_trip_id()
     report_details = get_report_details()
-    # print(report_details)
     license_plate = get_license_plate(report_details)
-    # print(f"Extracted license plate: {license_plate}")
-    # category = get_category()
-    # severity = get_severity()
-    # confidence = get_confidence()
-    # second_opinion_required = get_yes_no_field("Second opinion required? (y/n): ")
-    # immediate_attention_required = get_yes_no_field("Immediate attention required? (y/n): ")
-
 
     record = {
         "user_id": user_id,
         "trip_id": trip_id,
         "report_details": report_details,
         "license_plate": license_plate,
-        # "category": category,
-        # "severity": severity,
-        # "confidence": confidence,
-        # "second_opinion_required": second_opinion_required,
-        # "immediate_attention_required": immediate_attention_required,
         "timestamp": datetime.now().isoformat(timespec="seconds"),
     }
-    
+
     print("Report captured.\n")
     return record
 
+#Remove control characters such as \n and normalize line endings before validation.
 def sanitize_report_details(text):
     text = text.replace("\r\n", "\n").replace("\r", "\n")
     return re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", text).strip()
 
+#Print a table of incident records, handling both a single dict and a list.
 def report_summary(records):
     if isinstance(records, dict):
         records = [records]
-        
+
     if not records:
         print("\nIncident Report Summary — 0 reports")
         print("No reports to display.")
@@ -222,15 +212,8 @@ def report_summary(records):
 
     print(f"\nIncident Report Summary — {len(records)} report(s)")
     print(summary.to_string(index=False))
-    # print("\nReports by user:")
-    # print(summary["user_id"].value_counts(sort=False).to_string())
 
-    # print("\n" + "=" * 70)
-    # for index, record in enumerate(records, start=1):
-    #     print(f"\n[{index}]")
-    #     display_record(record)
-    #     print("-" * 70)
-
+#Print a single incident record in a readable user-facing format
 def display_record(record):
     print("=" * 50)
     print("\nIncident Report Record")
@@ -238,9 +221,6 @@ def display_record(record):
     print(f"Trip ID: {record['trip_id']}")
     print(f"Report Details: {record['report_details']}")
     print(f"License Plate: {record['license_plate']}")
-    # print(f"Category: {record['category']}")
-    # print(f"Severity: {record['severity']}")
-    # print(f"Confidence: {record['confidence']}")
     print("=" * 50)
 
 if __name__ == "__main__":
