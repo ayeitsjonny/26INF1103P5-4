@@ -6,10 +6,33 @@ import logging
 from pathlib import Path
 from typing import Optional
 from dotenv import load_dotenv
+from pathlib import Path
+from typing import Optional
+from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 from google.genai import errors as genai_errors
 
+# ============================================================
+# SETUP — runs once when this file is imported by main.py
+# ============================================================
+
+# Load .env from the same folder as this file; override=True so the .env
+# value wins over any stale key already set in Windows/terminal.
+load_dotenv(Path(__file__).parent / ".env", override=True)
+
+# strip() and quote-stripping guard against stray spaces/quotes in .env
+GEMINI_API_KEY = (os.environ.get("GEMINI_API_KEY") or "").strip().strip('"').strip("'") or None
+
+# IMPORTANT: if you swap models, check the new model's name on Google AI
+# Studio first — an outdated/retired model name causes a 404, not a 401,
+# which looks like an auth problem but isn't.
+MODEL = "gemini-3.6-flash"
+
+REQUEST_TIMEOUT_MS = 60_000  # 60 seconds — newer models can be slow, don't lower this casually
+MAX_RETRIES = 3               # total extra attempts after the first try (so 4 attempts max)
+
+# Build the Gemini client. If there's no key, _client stays None.
 # ============================================================
 # SETUP — runs once when this file is imported by main.py
 # ============================================================
@@ -50,7 +73,29 @@ if _client is None:
 # category list here, you MUST also update the matching list inside
 # build_prompt()'s prompt text below — they are not linked
 # automatically, so keep them in sync by hand.
+
+# IMPORTANT: this is a hard stop. If GEMINI_API_KEY isn't set in .env,
+# importing this file (e.g. `import ai_manager` in main.py) crashes
+# immediately with a clear error, instead of silently returning None
+# from every API call later. This is intentional — we want the whole
+# pipeline to refuse to run without a key, not quietly send every
+# record to manual review.
+if _client is None:
+    raise RuntimeError(
+        "GEMINI_API_KEY is not set. Add it to your .env file before running ai_manager."
+    )
+
+# IMPORTANT: these three sets are the single source of truth for what
+# counts as a "valid" AI response. If the AI returns anything outside
+# these values, validate_response() rejects it and the record gets
+# retried / eventually sent to manual review. If you change the
+# category list here, you MUST also update the matching list inside
+# build_prompt()'s prompt text below — they are not linked
+# automatically, so keep them in sync by hand.
 VALID_CATEGORIES = {
+    "unsafe_driving",
+    "verbal_harassment",
+    "long_hauling",
     "unsafe_driving",
     "verbal_harassment",
     "long_hauling",
