@@ -53,72 +53,6 @@ def validation_error(record):
     return None
 
 
-# def main():
-#     if USE_MOCK:
-#         ai_manager.call_api = ai_manager.call_api_mock
-
-#     # utf-8-sig handles the hidden BOM character that Excel adds to CSVs
-#     with open(INPUT_FILE, newline="", encoding="utf-8-sig") as f_in:
-#         reader = csv.DictReader(f_in)
-#         input_fields = reader.fieldnames or []
-#         rows = list(reader)
-
-#     missing = [c for c in (COL_TRIP_ID, COL_USER_ID, COL_REPORT) if c not in input_fields]
-#     if missing:
-#         print(f"Column(s) not found in {INPUT_FILE.name}: {missing}")
-#         print(f"Columns actually in the file: {input_fields}")
-#         return
-
-#     if MAX_ROWS:
-#         rows = rows[:MAX_ROWS]
-
-#     extra_fields = [c for c in [COL_PLATE] + AI_COLS + ["status"] if c not in input_fields]
-#     output_fields = input_fields + extra_fields
-
-#     counts = {"ok": 0, "invalid": 0, "manual_review": 0}
-
-#     with open(OUTPUT_FILE, "w", newline="", encoding="utf-8") as f_out:
-#         writer = csv.DictWriter(f_out, fieldnames=output_fields)
-#         writer.writeheader()
-
-#         for i, row in enumerate(rows, start=1):
-#             record = row_to_record(row)
-#             label = record["report_id"] or f"row {i}"
-#             out = dict(row)
-#             out[COL_PLATE] = record["license_plate"] or ""
-
-#             error = validation_error(record)
-#             if error:
-#                 out["status"] = f"invalid: {error}"
-#                 counts["invalid"] += 1
-#                 print(f"[{i}] SKIPPED ({error}) - {label}, trip {record['trip_id']}")
-#             else:
-#                 result = ai_manager.process(record)
-
-#                 # pause between real API calls to stay under rate limits
-#                 if not USE_MOCK and i < len(rows):
-#                     time.sleep(DELAY_BETWEEN_CALLS)
-
-#                 if result is None:
-#                     out["status"] = "manual_review"
-#                     counts["manual_review"] += 1
-#                     print(f"[{i}] AI failed - {label}, trip {record['trip_id']} -> manual review")
-#                 else:
-#                     out.update({f"ai_{k}": v for k, v in result.items()})
-#                     out["status"] = "ok"
-#                     counts["ok"] += 1
-#                     print(
-#                         f"[{i}] {label}, trip {record['trip_id']}: {result['category']} | "
-#                         f"severity {result['severity']} | conf {result['confidence']:.2f}\n"
-#                         f"     {result['reasoning']}"
-#                     )
-
-#             writer.writerow(out)
-
-#     print(f"\nDone. {counts['ok']} classified, {counts['invalid']} invalid, "
-#           f"{counts['manual_review']} need manual review.")
-#     print(f"Results saved to {OUTPUT_FILE.name}")
-
 def main():
     data_manager.initialize_csv()
 
@@ -131,7 +65,6 @@ def main():
             case 1:
                 report = io_manager.build_report()
                 analysis = ai_manager.process(report)
-                #print(analysis)
                 if analysis is None:
                     print("No analysis received -  Returning to menu")
                     continue
