@@ -15,9 +15,9 @@ FIELDNAMES = [
     "VALID_CATEGORIES",
     "SEVERITY",
     "CONFIDENCE",
-    "STATUS"
-    "SECOND_OPINION REQUIRED"
-    "IMMEDIATE_ATTENTION_REQUIRED"
+    "STATUS",
+    "SECOND_OPINION_REQUIRED",
+    "IMMEDIATE_ATTENTION_REQUIRED",
 ]
 
 def initialize_csv():
@@ -63,10 +63,12 @@ def update_record(incident_id, ai_results):
     updated = False #if the record is found and updated, this will be set to True.
 
     for record in records:
-        if record["INCIDENT_ID"] == str(incident_id): #converts the target ID to a string to prevent type mismatch bugs (e.g., matching integer 123 against string "123") 
+        if str(record.get("INCIDENT_ID", "")) == str(incident_id): #converts the target ID to a string to prevent type mismatch bugs (e.g., matching integer 123 against string "123") 
             record["VALID_CATEGORIES"] = ai_results.get("VALID_CATEGORIES", record["VALID_CATEGORIES"])
             record["SEVERITY"] = ai_results.get("SEVERITY", record["SEVERITY"])
             record["CONFIDENCE"] = ai_results.get("CONFIDENCE", record["CONFIDENCE"])
+            record["SECOND_OPINION_REQUIRED"] = ai_results.get("SECOND_OPINION_REQUIRED", record.get("SECOND_OPINION_REQUIRED", ""))
+            record["IMMEDIATE_ACTION_REQUIRED"] = ai_results.get("IMMEDIATE_ACTION_REQUIRED", record.get("IMMEDIATE_ACTION_REQUIRED", ""))
             record["STATUS"] = "PROCESSED"
             updated = True
             break
@@ -85,8 +87,8 @@ def delete_record(incident_id):
     records = load_all_records()
     initial_count = len(records) #counts how many rows exist before deletion.
 
-    #keep every record except the one that matches the incident_id that we are deleting
-    filtered_records = [record for record in records if record["INCIDENT_ID"] != str(incident_id)]
+    #Keep every record except the one matching the target ID (safeguarded with .get())
+    filtered_records = [record for record in records if str(record.get("INCIDENT_ID", "")) != str(incident_id)]
 
     #if the list is shorter, it means the record is deleted
     if len(filtered_records) < initial_count:
