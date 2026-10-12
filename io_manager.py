@@ -30,12 +30,18 @@ def print_banner():
 
 #Function to get options
 def get_options():
-    user_option = int(input("Select Option: "))
-    if user_option > 4 or user_option < 1:
-        print("Please select a valid option")
-        get_options()
-    else:
-        return user_option
+
+    valid_option = False
+    while valid_option == False:
+        try: user_option = int(input("Select Option: "))
+        except: return None
+
+        if user_option > 4 or user_option < 1:
+            print("Please select a valid option")
+            continue
+        else:
+            valid_option = True
+    return user_option
 
 #Ensures input field is not empty else reject user input
 def non_empty_input(prompt):

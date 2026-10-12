@@ -121,38 +121,44 @@ def validation_error(record):
 
 def main():
     data_manager.initialize_csv()
-    io_manager.print_banner()
-    option = io_manager.get_options()
 
-    match option:
-        case 1:
-            report = io_manager.build_report()
-            analysis = ai_manager.process(report)
-            #print(analysis)
-            if analysis is None:
-                print("No analysis received -  Quitting")
-                quit()
+    while True:
 
-            result = logic_manager.escalation(analysis)
-            report_entry = report | result
-            try: data_manager.save_record(report_entry)
-            except:
-                print("Error while saving entry")
-                quit()
-            print("Report entry submitted successfully.")
-        case 2:
-            search = io_manager.get_trip_id()
-            result = data_manager.get_records_by_trip(search)
-            for i in range(len(result)):
-                entry = io_manager.display_record(result[i])
-        case 3:
-            # print("Display a table of all reports")
-            io_manager.report_summary(data_manager.load_all_records())
+        io_manager.print_banner()
+        option = io_manager.get_options()
 
-        case 4:
-            return None
-        case _:
-            return None
+        match option:
+            case 1:
+                report = io_manager.build_report()
+                analysis = ai_manager.process(report)
+                #print(analysis)
+                if analysis is None:
+                    print("No analysis received -  Returning to menu")
+                    continue
+
+                result = logic_manager.escalation(analysis)
+                report_entry = report | result
+                try: data_manager.save_record(report_entry)
+                except:
+                    print("Error while saving entry - Returning to menu")
+                    continue
+                print("Report entry submitted successfully.")
+            case 2:
+                search = io_manager.get_trip_id()
+                result = data_manager.get_records_by_trip(search)
+                for i in range(len(result)):
+                    entry = io_manager.display_record(result[i])
+                    input("Press enter to continue")
+            case 3:
+                # print("Display a table of all reports")
+                io_manager.report_summary(data_manager.load_all_records())
+                input("Press enter to continue")
+
+            case 4:
+                print("Quitting the program...")
+                break
+            case _:
+                continue
 
 
 if __name__ == "__main__":
