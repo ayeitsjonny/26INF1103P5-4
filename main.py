@@ -4,6 +4,7 @@ from pathlib import Path
 
 import io_manager
 import ai_manager
+import data_manager
 
 BASE_DIR = Path(__file__).parent          # so files are found no matter where you run from
 INPUT_FILE = BASE_DIR / "data.csv"
