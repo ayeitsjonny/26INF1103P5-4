@@ -108,4 +108,9 @@ def filter_by_category(category):
 def get_records_by_user(user_id):
     #Retrieves all records associated with the provided user_id.
     records = load_all_records()
-    return [record for record in records if str(record.get("user_id")) == str(user_id)]
+    return [record for record in records if str(record.get("user_id").lower()) == str(user_id).lower()]
+
+def get_records_by_trip(trip_id):
+    #Retrieves all records associated with the provided trip_id.
+    records = load_all_records()
+    return [record for record in records if str(record.get("trip_id").lower()) == str(trip_id).lower()]
