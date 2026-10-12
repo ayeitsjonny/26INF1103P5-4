@@ -120,6 +120,7 @@ def validation_error(record):
 #     print(f"Results saved to {OUTPUT_FILE.name}")
 
 def main():
+    data_manager.initialize_csv()
     io_manager.print_banner()
     option = io_manager.get_options()
 
@@ -129,14 +130,25 @@ def main():
             analysis = ai_manager.process(report)
             #print(analysis)
             if analysis is None:
-                print("No analysis received")
-            else:
-                result = logic_manager.escalation(analysis)
-                print(result)
+                print("No analysis received -  Quitting")
+                quit()
+
+            result = logic_manager.escalation(analysis)
+            report_entry = report | result
+            try: data_manager.save_record(report_entry)
+            except:
+                print("Error while saving entry")
+                quit()
+            print("Report entry submitted successfully.")
         case 2:
-            print("This should be getting a specific report from trip id")
+            search = io_manager.get_trip_id()
+            result = data_manager.get_records_by_trip(search)
+            for i in range(len(result)):
+                entry = io_manager.display_record(result[i])
         case 3:
-            print("This should show a table of all the reports")
+            # print("Display a table of all reports")
+            io_manager.report_summary(data_manager.load_all_records())
+
         case 4:
             return None
         case _:
