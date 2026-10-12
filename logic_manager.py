@@ -1,4 +1,4 @@
-def getAi_output(ai_object):                # test function to get data from ai output, REAL ai output will also be json output
+def getAi_output(ai_object):                # function to get data from ai output
     category = ai_object["category"]        # variable category contains the category of harrassment from ai output
     severity = ai_object["severity"]        # variable severity contains the severity rating from ai output
     confidence = ai_object["confidence"]    # variable confidence contains the confidence scalefrom ai output
@@ -21,14 +21,9 @@ def escalation(assess_object): # parse ai output as an input
 
     if severity >= 2 and category in emergency_categories and confidence >= 0.5:
         emergency_escalation = True # boolean
-        print("emergency:", emergency_escalation,"second_opinion:", second_opinion) # for testing
 
     elif confidence < 0.5:
         second_opinion = True # boolean value to indicate whether second opinion is required
-        print("emergency:", emergency_escalation,"second_opinion:", second_opinion) # for testing
-        
-    else:
-        print("emergency:", emergency_escalation,"second_opinion:", second_opinion) # for testing
 
     assess_object.update({
     "second_opinion_required" : second_opinion, 
