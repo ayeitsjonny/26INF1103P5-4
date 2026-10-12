@@ -1,6 +1,7 @@
 import csv
 import os
 import logging
+import uuid
 
 CSV_FILE ="reportcases.csv"
 
@@ -44,9 +45,12 @@ def save_record(record_data):
     #Appends a new record to the CSV file.
     initialize_csv()
 
+    #IF dont have an INCIDENT_ID,
+    #Generate a unique incident ID using a random UUID and takes the first 6 characters of its hexadecimal representation, converting them to uppercase.
+    if not record_data.get("INCIDENT_ID"):
+        record_data["INCIDENT_ID"] = f"INC-{uuid.uuid4().hex[:6].upper()}" 
     #Fill missing fields with defaults if not provided
     full_record = {field: record_data.get(field, "") for field in FIELDNAMES}
-
     with open(CSV_FILE, mode='a', newline='', encoding='utf-8') as csvfile:
         writer = csv.DictWriter(csvfile, fieldnames=FIELDNAMES)
         writer.writerow(full_record) #takes the full_record dictionary and writes it as a new row in the CSV file.
