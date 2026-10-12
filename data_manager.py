@@ -5,18 +5,19 @@ import logging
 CSV_FILE ="reportcases.csv"
 
 FIELDNAMES = [
-    "INCIDENT_ID",
-    "TIMESTAMP",
-    "USER_ID",
-    "TRIP_ID",
-    "LICENSE_PLATE",
-    "REPORT_DETAILS", 
-    "VALID_CATEGORIES",
-    "SEVERITY",
-    "CONFIDENCE",
-    "STATUS"
-    "SECOND_OPINION REQUIRED"
-    "IMMEDIATE_ATTENTION_REQUIRED"
+    "timestamp",
+    "trip_id",
+    "user_id",
+    "license_plate",
+    "report_details",
+    "category",
+    "contact_type",
+    "stated_effect",
+    "severity",
+    "confidence",
+    "reasoning",
+    "second_opinion_required",
+    "immediate_attention_required"
 ]
 
 def initialize_csv():
@@ -53,17 +54,17 @@ def save_record(record_data):
     return True
 
 #when AI and business rules have processed the incident, this function will update the record with the results.
-def update_record(incident_id, ai_results):
+def update_record(trip_id, ai_results):
     #Updates an existing incident record in the CSV file based on the provided incident_id and AI results.
     records = load_all_records() #loads all records from the CSV file into a list of dictionaries.
     updated = False #if the record is found and updated, this will be set to True.
 
-    for record in records:
-        if record["INCIDENT_ID"] == str(incident_id): #converts the target ID to a string to prevent type mismatch bugs (e.g., matching integer 123 against string "123") 
-            record["VALID_CATEGORIES"] = ai_results.get("VALID_CATEGORIES", record["VALID_CATEGORIES"])
-            record["SEVERITY"] = ai_results.get("SEVERITY", record["SEVERITY"])
-            record["CONFIDENCE"] = ai_results.get("CONFIDENCE", record["CONFIDENCE"])
-            record["STATUS"] = "PROCESSED"
+    for entry in records:
+        if entry["trip_id"] == str(trip_id): #converts the target ID to a string to prevent type mismatch bugs (e.g., matching integer 123 against string "123") 
+            entry["category"] = ai_results.get("category", entry["category"])
+            entry["severity"] = ai_results.get("severity", entry["severity"])
+            entry["confidence"] = ai_results.get("confidence", entry["confidence"])
+            # entry["STATUS"] = "PROCESSED" # status is not utilized
             updated = True
             break
 
@@ -76,13 +77,13 @@ def update_record(incident_id, ai_results):
     return updated
 
 #Delete function 
-def delete_record(incident_id):
+def delete_record(trip_id):
     #deletes an incident record from the CSV file based on its ID
     records = load_all_records()
     initial_count = len(records) #counts how many rows exist before deletion.
 
     #keep every record except the one that matches the incident_id that we are deleting
-    filtered_records = [record for record in records if record["INCIDENT_ID"] != str(incident_id)]
+    filtered_records = [record for record in records if record["INCIDENT_ID"] != str(trip_id)]
 
     #if the list is shorter, it means the record is deleted
     if len(filtered_records) < initial_count:
@@ -97,14 +98,19 @@ def delete_record(incident_id):
 def filter_by_severity(severity_level):
     #Filters records in the CSV file based on the provided severity level.
     records = load_all_records()
-    return [record for record in records if str(record.get("SEVERITY")) == str(severity_level)]
+    return [record for record in records if str(record.get("severity")) == str(severity_level)]
 
 def filter_by_category(category):
     #Filters records in the CSV file based on the provided category.
     records = load_all_records()
-    return [record for record in records if category.lower() in record.get("VALID_CATEGORIES", "").lower()]
+    return [record for record in records if category.lower() in record.get("category", "").lower()]
 
 def get_records_by_user(user_id):
     #Retrieves all records associated with the provided user_id.
     records = load_all_records()
-    return [record for record in records if str(record.get("USER_ID")) == str(user_id)]
+    return [record for record in records if str(record.get("user_id").lower()) == str(user_id).lower()]
+
+def get_records_by_trip(trip_id):
+    #Retrieves all records associated with the provided trip_id.
+    records = load_all_records()
+    return [record for record in records if str(record.get("trip_id").lower()) == str(trip_id).lower()]
