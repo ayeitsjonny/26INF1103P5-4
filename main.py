@@ -122,23 +122,25 @@ def validation_error(record):
 def main():
     io_manager.print_banner()
     option = io_manager.get_options()
-    if option == 1:
-        report = io_manager.build_report()
-        analysis = ai_manager.process(report)
-        #print(analysis)
-        if analysis is None:
-            print("No analysis received")
-        else:
-            result = logic_manager.escalation(analysis)
-            print(result)
-    elif option == 2:
-        print("This should be getting a specific report from trip id")
-    elif option == 3:
-        print("This should show a table of all the reports")
-    elif option == 4:
-        return None
-    else:
-        return None
+
+    match option:
+        case 1:
+            report = io_manager.build_report()
+            analysis = ai_manager.process(report)
+            #print(analysis)
+            if analysis is None:
+                print("No analysis received")
+            else:
+                result = logic_manager.escalation(analysis)
+                print(result)
+        case 2:
+            print("This should be getting a specific report from trip id")
+        case 3:
+            print("This should show a table of all the reports")
+        case 4:
+            return None
+        case _:
+            return None
 
 
 if __name__ == "__main__":
