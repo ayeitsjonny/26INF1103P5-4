@@ -4,8 +4,8 @@ import re
 
 #Regex for User,Trip,License plate
 SINGAPORE_LICENSE_PLATE_REGEX = re.compile(r"\bS[A-Z]{0,3}\s*\d{1,4}\s*[A-Z]\b", re.IGNORECASE)
-TRIP_ID_PATTERN = re.compile(r"^T[0-9]{1,6}$", re.IGNORECASE)
-USER_ID_PATTERN = re.compile(r"^U[0-9]{1,6}$", re.IGNORECASE)
+TRIP_ID_PATTERN = re.compile(r"^(TRIP)[0-9]{1,6}$", re.IGNORECASE)
+USER_ID_PATTERN = re.compile(r"^(USER)[0-9]{1,6}$", re.IGNORECASE)
 
 #Sets minimum and maximum require characters for report
 REPORT_MIN_CHARACTERS = 10
@@ -23,6 +23,19 @@ def print_banner():
     print("=" * 40)
     print("       AI-ASSISTED SAFETY REPORTING")
     print("=" * 40)
+    print("1. Write a report")
+    print("2. Display a report from Trip ID")
+    print("3. Display reports table")
+    print("4. Quit Program")
+
+#Function to get options
+def get_options():
+    user_option = int(input("Select Option: "))
+    if user_option > 4 or user_option < 1:
+        print("Please select a valid option")
+        get_options()
+    else:
+        return user_option
 
 #Ensures input field is not empty else reject user input
 def non_empty_input(prompt):
@@ -165,26 +178,9 @@ def get_yes_no_field(prompt):
         "Please answer y or n.",
     )
 
-#temporary function to send to ai for testing
-def send_to_ai():
-    user_id = get_user_id()
-    trip_id = get_trip_id()
-    report_details = get_report_details()
-    license_plate = get_license_plate(report_details)
-    
-    record = {
-        "user_id": user_id,
-        "trip_id": trip_id,
-        "report_details": report_details,
-        "license_plate": license_plate,
-        "timestamp": datetime.now().isoformat(timespec="seconds"),
-    }
-
-    return record
 
 #Function to build the report and return a dict for ai manager
 def build_report():
-    print_banner()
     user_id = get_user_id()
     trip_id = get_trip_id()
     report_details = get_report_details()
@@ -198,7 +194,8 @@ def build_report():
         "timestamp": datetime.now().isoformat(timespec="seconds"),
     }
 
-    print("Report captured.\n")
+    print(record)
+    print("\n Report captured.")
     return record
 
 #Remove control characters such as \n and normalize line endings before validation.
