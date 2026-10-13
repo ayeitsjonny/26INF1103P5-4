@@ -125,7 +125,7 @@ def main():
     if option == 1:
         report = io_manager.build_report()
         analysis = ai_manager.process(report)
-        #print(analysis)
+        print(analysis)
         if analysis is None:
             print("No analysis received")
         else:
