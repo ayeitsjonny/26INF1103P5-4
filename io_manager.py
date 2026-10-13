@@ -250,6 +250,8 @@ def display_record(record):
 # Functions containing error messages
 def misc_outputs(trigger):
     match trigger:
+        case "LM_Invalid":
+            print("Error raised in Logic Manager - Returning to menu")
         case "Ent_Success":
             print("Report entry submitted successfully.")
         case "AM_Null":
