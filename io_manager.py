@@ -63,6 +63,10 @@ def get_valid_field(prompt, validator, error_msg):
 
 # --- validators ---
 #Ensure that the tripid is in the required format
+def validate_license_plate(license):
+    match = SINGAPORE_LICENSE_PLATE_REGEX.match(license)
+    return match.group() if match else None
+
 def validate_trip_id(trip_id):
     match = TRIP_ID_PATTERN.match(trip_id)
     return match.group() if match else None
@@ -104,17 +108,16 @@ def validate_yes_no(answer):
     """Map yes/no answers to booleans so the app can store a simple flag."""
     return YES_NO.get(answer.strip().lower())
 
-#Checks for license plate inside the report details and ensures it's in SXX1234A format
-def get_license_plate(report_details):
-    """Extract the vehicle plate from the incident text and normalize it to SG format."""
-    match = SINGAPORE_LICENSE_PLATE_REGEX.search(report_details)
-    while not match:
-        report_details = input("No license plate found. Please enter the license in (SXX1234A): ")
-        match = SINGAPORE_LICENSE_PLATE_REGEX.search(report_details)
-    return re.sub(r"\s+", "", match.group()).upper()
-
 
 # --- field getters ---
+# Collect and validate the license plate number
+def get_license_plate():
+    return get_valid_field(
+        "Please enter the incident car license plate in (SXX1234A): ",
+        validate_license_plate,
+        "No license plate found. Please enter the license in (SXX1234A): "
+    )
+
 #Collect and validate the reporting user's ID
 def get_user_id():
     return get_valid_field(
@@ -189,8 +192,9 @@ def get_yes_no_field(prompt):
 def build_report():
     user_id = get_user_id()
     trip_id = get_trip_id()
+    # license_plate = get_license_plate(report_details)
+    license_plate = get_license_plate()
     report_details = get_report_details()
-    license_plate = get_license_plate(report_details)
 
     record = {
         "user_id": user_id,
