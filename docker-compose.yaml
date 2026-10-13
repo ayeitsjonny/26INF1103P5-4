@@ -5,6 +5,7 @@ services:
       dockerfile: ./Dockerfile # relative path from context to dir containing dockerfile
     stdin_open: true # docker run -i
     tty: true        # docker run -t
-    volumes: ./logs_reports:/app/logs_reports
+    volumes: 
+     - ./logs_reports:/app/logs_reports
     env_file:
       - .env
