@@ -1,0 +1,10 @@
+services:
+  yapalyzer: # name of the container
+    build:
+      context: . # defines either path to dir containing dockerfile, or URL to a git repo
+      dockerfile: ./Dockerfile # relative path from context to dir containing dockerfile
+    stdin_open: true # docker run -i
+    tty: true        # docker run -t
+    volumes: ./logs_reports:/app/logs_reports
+    env_file:
+      - .env
