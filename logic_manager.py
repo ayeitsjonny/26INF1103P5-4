@@ -24,7 +24,7 @@ def validate_AIoutput(ai_object): # function to validate ai output
 
 
 def escalation(assess_object): # parse ai output as an input
-    if validate_AIoutput() == True:
+    if validate_AIoutput(assess_object) == True:
         category, severity, confidence = getAi_output(assess_object)
 
         emergency_categories = (

@@ -1,0 +1,19 @@
+# Version Control
+.git
+.gitignore
+
+# Local Dependencies
+.venv/
+
+# Secrets and Environment Varaibles
+.env
+
+# IDEs and OS
+.vscode/
+
+# Logs and Cache
+__pycache__/
+
+# Build Artifacts and Documentation
+README.md
+ProjectInitialDetails.md
