@@ -6,9 +6,6 @@ import logging
 from pathlib import Path
 from typing import Optional
 from dotenv import load_dotenv
-from pathlib import Path
-from typing import Optional
-from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 from google.genai import errors as genai_errors
@@ -110,10 +107,17 @@ VALID_CATEGORIES = {
 VALID_CONTACT_TYPES = {"none", "verbal", "physical"}
 VALID_STATED_EFFECTS = {"none", "distress", "fear_for_safety"}
 
+# Ensure that the logging file exists; creates one if not
+log_path = Path("./logs_reports/ai_manager.log")
+log_path.parent.mkdir(parents=True, exist_ok=True)
+log_path.touch(exist_ok=True)
+
+LOG_FILE = str(log_path) # LOG_FILE = "./logs_reports/ai_manager.log"
+
 # All errors/info from this module go to ai_manager.log, not the
 # console. Check this file first when something fails silently.
 logging.basicConfig(
-    filename="ai_manager.log",
+    filename=LOG_FILE,
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
 )

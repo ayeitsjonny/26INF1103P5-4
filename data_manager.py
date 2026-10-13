@@ -2,7 +2,7 @@ import csv
 import os
 import logging
 
-CSV_FILE ="reportcases.csv"
+CSV_FILE ="./logs_reports/reportcases.csv"
 
 FIELDNAMES = [
     "timestamp",
