@@ -66,16 +66,16 @@ def main():
                 report = io_manager.build_report()
                 analysis = ai_manager.process(report)
                 if analysis is None:
-                    print("No analysis received -  Returning to menu")
+                    io_manager.misc_outputs("AM_Null")
                     continue
 
                 result = logic_manager.escalation(analysis)
                 report_entry = report | result
                 try: data_manager.save_record(report_entry)
                 except:
-                    print("Error while saving entry - Returning to menu")
+                    io_manager.misc_outputs("DM_Savefail")
                     continue
-                print("Report entry submitted successfully.")
+                io_manager.misc_outputs("Ent_Success")
             case 2:
                 search = io_manager.get_trip_id()
                 result = data_manager.get_records_by_trip(search)

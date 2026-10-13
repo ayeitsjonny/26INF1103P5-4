@@ -247,6 +247,17 @@ def display_record(record):
     print(f"License Plate: {record['license_plate']}")
     print("=" * 50)
 
+# Functions containing error messages
+def misc_outputs(trigger):
+    match trigger:
+        case "Ent_Success":
+            print("Report entry submitted successfully.")
+        case "AM_Null":
+            print("No analysis received -  Returning to menu")
+        case "DM_Savefail":
+            print("Error while saving entry - Returning to menu")
+    return
+
 if __name__ == "__main__":
     try:
         report = build_report()
