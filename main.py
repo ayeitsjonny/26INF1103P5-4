@@ -70,6 +70,10 @@ def main():
                     continue
 
                 result = logic_manager.escalation(analysis)
+                if result is False:
+                    io_manager.misc_outputs("LM_Invalid")
+                    continue
+
                 report_entry = report | result
                 try: data_manager.save_record(report_entry)
                 except:
