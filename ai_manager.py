@@ -46,7 +46,8 @@ GEMINI_API_KEY = (os.environ.get("GEMINI_API_KEY") or "").strip().strip('"').str
 # IMPORTANT: if you swap models, check the new model's name on Google AI
 # Studio first — an outdated/retired model name causes a 404, not a 401,
 # which looks like an auth problem but isn't.
-MODEL = "gemini-3.6-flash"
+#MODEL = "gemini-3.6-flash"
+MODEL = "gemini-3.1-flash-lite"
 
 REQUEST_TIMEOUT_MS = 60_000  # 60 seconds — newer models can be slow, don't lower this casually
 MAX_RETRIES = 3               # total extra attempts after the first try (so 4 attempts max)
