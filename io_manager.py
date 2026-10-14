@@ -108,16 +108,17 @@ def validate_yes_no(answer):
     """Map yes/no answers to booleans so the app can store a simple flag."""
     return YES_NO.get(answer.strip().lower())
 
+#Checks for license plate inside the report details and ensures it's in SXX1234A format
+def get_license_plate(report_details):
+    """Extract the vehicle plate from the incident text and normalize it to SG format."""
+    match = SINGAPORE_LICENSE_PLATE_REGEX.search(report_details)
+    while not match:
+        report_details = input("No license plate found. Please enter the license in (SXX1234A): ")
+        match = SINGAPORE_LICENSE_PLATE_REGEX.search(report_details)
+    return re.sub(r"\s+", "", match.group()).upper()
+
 
 # --- field getters ---
-# Collect and validate the license plate number
-def get_license_plate():
-    return get_valid_field(
-        "Please enter the incident car license plate in (SXX1234A): ",
-        validate_license_plate,
-        "No license plate found. Please enter the license in (SXX1234A): "
-    )
-
 #Collect and validate the reporting user's ID
 def get_user_id():
     return get_valid_field(
@@ -192,9 +193,8 @@ def get_yes_no_field(prompt):
 def build_report():
     user_id = get_user_id()
     trip_id = get_trip_id()
-    # license_plate = get_license_plate(report_details)
-    license_plate = get_license_plate()
     report_details = get_report_details()
+    license_plate = get_license_plate(report_details)
 
     record = {
         "user_id": user_id,
@@ -228,14 +228,25 @@ def report_summary(records):
         "confidence", "second_opinion_required",
         "immediate_attention_required", "timestamp",
     ]
+    
     summary_records = [
         {field: record.get(field, "unknown") for field in summary_fields}
         for record in records
     ]
     summary = pd.DataFrame(summary_records)
 
+    summary["timestamp"] = pd.to_datetime(summary["timestamp"]) 
+
+    #sorting the table to put the oldest emergency high severity case first
+    sorted_summary = summary.sort_values(
+        by=["immediate_attention_required", "severity", "timestamp"],
+        ascending=[False, False, True]
+    )
+
     print(f"\nIncident Report Summary — {len(records)} report(s)")
-    print(summary.to_string(index=False))
+    print(sorted_summary.to_string(index=False))
+    print(f"\nImmediate Attention Needed — {(sorted_summary['immediate_attention_required'] == "True").sum()}")
+    print(f"Manual Review — {(sorted_summary['second_opinion_required'] == "True").sum()}\n")
 
 #Print a single incident record in a readable user-facing format
 def display_record(record):
