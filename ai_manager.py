@@ -87,3 +87,20 @@ class GeminiProvider(AIProvider):
         except Exception as e:  # e.g. network errors raised by the HTTP library itself
             logging.error(f"Could not reach Gemini: {e}")
             return None
+
+    class MockProvider(AIProvider):
+        # [CHANGED] Part 1 call_api_mock(). Now a proper provider used by the tests,
+        # so tests run without a live API (brief section 8).
+        # It is NOT used by the running app (brief section 7: no hard-coded AI answers).
+
+        def __init__(self, responses: list):
+            # responses: raw strings (or None) returned in order. The last one repeats.
+            self._responses: list = responses
+            self.calls: int = 0
+
+        def generate(self, prompt: str) -> str | None:
+            index = self.calls
+            if index >= len(self._responses):
+                index = len(self._responses) - 1
+            self.calls += 1
+            return self._responses[index]
