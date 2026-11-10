@@ -56,9 +56,42 @@ class RecordRepository(ABC):
         """DELETE: remove one report. Returns False if not found."""
         pass
 
+# Shared by both children, turn a stored row into an IncidentReport object.
+# CSV gives everything as str such as "True" or "2", SQlite gives 1/0 and integers.
+# Converting in one place means both children return the same type of object. This is addresses LSP.
+def _row_to_report(self, row: dict) -> IncidentReport:
+    return IncidentReport(
+        report_id = self._optional(row.get("report_id"), int),
+        timestamp = self._todatetime(row.get("timestamp")),
+        trip_id = str(row["trip_id"]),
+        user_id = str(row["user_id"]),
+        license_plate = str(row["license_plate"]),
+        report_details = str(row["license_plate"]),
+        category = self._optional(row.get("category"), str),
+        contact_type = self._optional(row.get("contact_type"), str),
+        stated_effect = self._optional(row.get("stated_effect"), str),
+        severity = self._optional(row.get("severity"), int),
+        confidence = self._optional(row.get("confidence"), float),
+        reasoning = self._optional(row.get("reasoning"), str),
+        second_opinion_required = self._to_bool(row.get("second_opinion_required")),
+        immediate_attention_required = self._to_bool(row.get("immediate_attention_required")),
+    )
 
+def _optional(self, value, convert):
+    # Empty CSV cell or null in SQLite is None. If not None, convert to the right type.
+    if value is None or str(value).strip() == "":
+        return None
+    return convert(value)
 
+def _to_bool(self, value) -> bool:
+    if isinstance(value, str):
+        return value.strip().lower() in ("true", "1")
+    return bool(value)
 
+def _to_datetime(self, value) -> datetime:
+    if isinstance(value, datetime):
+        return value
+    return datetime.fromisoformat(str(value).strip())
 
 
 def initialize_csv():
