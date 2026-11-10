@@ -104,3 +104,46 @@ class GeminiProvider(AIProvider):
                 index = len(self._responses) - 1
             self.calls += 1
             return self._responses[index]
+
+class PromptBuilder:
+
+    def build(self, report: IncidentReport) -> str:
+        """
+        Only report_details is sent. trip_id, user_id, plate and timestamp are
+        not needed by the AI because it classifies the free text only.
+        Severity is derived from contact_type, repetition and stated_effect
+        (POHA research), except sexual_harassment which is always severity 2.
+        """
+        report_details = report.report_details
+
+        return f"""You are classifying a safety report submitted on a ride-hailing platform, using a fixed rubric based on Singapore's Protection from Harassment Act (POHA). Do not make a subjective overall judgment — apply the criteria below mechanically.
+
+Report text: "{report_details}"
+
+Step 1 — extract two signals from the text:
+- contact_type: "physical" if any unwanted physical contact is described, "verbal" if the harm is spoken/written only (comments, threats, messages), "none" if no harassment is actually described.
+- stated_effect: "fear_for_safety" if the report explicitly describes fear, being followed, threats of future harm, or similar; "distress" if it describes being upset, uncomfortable, or offended without fear of safety; "none" if no emotional impact is stated.
+
+Step 2 — assign severity using this rubric:
+- severity 2 (high): physical_assault, stalking, or sexual_harassment of any kind (spoken, written, or physical contact — sexual harassment is always severity 2 minimum regardless of contact_type) — matches POHA Section 5 (fear of violence) or Section 7 (unlawful stalking), or is treated as high severity given its sensitivity. Heaviest tier — immediate escalation.
+- severity 1 (medium): unsafe_driving, verbal_harassment, threats, indecent remarks not of a sexual nature, or unwanted contact without physical assault — matches POHA Section 3 (intentional harassment). Causes distress or fear without physical contact.
+- severity 0 (low): general service complaints, rudeness, fare disputes — no harassment under POHA.
+
+Step 3 — assign category as the closest match: unsafe_driving, verbal_harassment, long_hauling, physical_assault, sexual_harassment, stalking, or misc.
+
+Two worked examples for calibration:
+1. "The driver made an inappropriate sexual comment" -> contact_type: "verbal", stated_effect: "distress", category: "sexual_harassment", severity: 2 (any sexual_harassment is severity 2 minimum, even a single verbal remark with no physical contact and no stated fear).
+2. "The driver threatened to sexually assault me and followed me home" -> contact_type: "verbal" (threat, not actual contact), stated_effect: "fear_for_safety", category: "sexual_harassment", severity: 2 (sexual_harassment is always severity 2 regardless of contact type; the explicit threat plus following someone home would also independently meet the fear-of-violence bar under Section 5).
+
+Return ONLY a JSON object, with no other text, no markdown code fences, and no explanation. Use exactly this format:
+
+{{
+  "category": one of ["unsafe_driving", "verbal_harassment", "long_hauling", "physical_assault", "sexual_harassment", "stalking", "misc"],
+  "contact_type": one of ["none", "verbal", "physical"],
+  "stated_effect": one of ["none", "distress", "fear_for_safety"],
+  "severity": integer, 0 (low), 1 (medium), or 2 (high),
+  "confidence": float between 0.0 and 1.0,
+  "reasoning": a short string (max ~2000 characters) stating which signals drove the severity call
+}}
+
+If the text is too vague to classify confidently, still return your best guess for every field but reflect that uncertainty in a low confidence value."""
