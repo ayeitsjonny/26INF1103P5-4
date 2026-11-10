@@ -18,6 +18,49 @@ UPDATEABLE_COLUMNS = ("report_details", "category", "contact_type", "stated_effe
                       "severity", "confidence", "reasoning",
                       "second_opinion_required", "immediate_attention_required")
 
+# customs exceptions, to let the rest of thee app tell "database is down" apart from other storage issues.
+class StorageError(Exception):
+    """Any problem reading or writing stored reports."""
+
+class StorageUnavailableError(StorageError):
+    """The storage backend cannot be used (eg database file is corrupted or locked)."""
+
+# RecordRespository - abstract class. Every storage backend must implement the CRUD methods.
+class RecordRepository(ABC):
+
+    def __init__(self, name: str):
+        self._name: str = name
+
+    @property
+    def name(self) -> str:
+        """Short name shown to the user, eg "CSV file" or "SQLite database"."""
+        return self._name
+
+    @abstractmethod
+    def save(self, report: IncidentReport) -> int:
+        """CREATE: stpre a new report and return its new report_id."""
+        pass
+
+    @abstractmethod
+    def get_all(self) -> list[IncidentReport]:
+        """READ: return every stored report."""
+        pass
+
+    @abstractmethod
+    def update(self, report: IncidentReport) -> bool:
+        """UPDATE: write the UPDATABLE_COLUMNS of this report. Returns False if not found."""
+        pass
+
+    @abstractmethod
+    def delete(self, report_id: int) -> bool:
+        """DELETE: remove one report. Returns False if not found."""
+        pass
+
+
+
+
+
+
 def initialize_csv():
     #Initializes the CSV file with headers if it doesn't exist or is empty.
     if not os.path.exists(CSV_FILE) or os.path.getsize(CSV_FILE) == 0: #to check if the file exists and is not empty. / the not after if just means either condition can be true
