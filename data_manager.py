@@ -182,6 +182,62 @@ def delete(self, report_id: int) -> bool:
     self._write_rows(remaining)
     return True
 
+# Database integration
+# Inheritance is practiced here, a RecordRepository that uses an SQLite database.
+
+class SqliteRepository(RecordRepository):
+
+    CREATE TABLE_SQL = """
+        CREATE TABLE IF NOT EXISTS reportcases (
+            report_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp TEXT NOT NULL,
+            trip_id TEXT NOT NULL,
+            user_id TEXT NOT NULL,
+            license_plate TEXT NOT NULL,
+            report_details TEXT NOT NULL,
+            category TEXT,
+            contact_type TEXT,
+            stated_effect TEXT,
+            severity INTEGER,
+            confidence REAL,
+            reasoning TEXT,
+            second_opinion_required INTEGER NOT NULL DEFAULT 0,
+            immediate_attention_required INTEGER NOT NULL DEFAULT 0
+        )
+    """
+
+    def __init__(self, db_path = DEFAULT_DB_FILE):
+        super().__init__("SQLite")
+        self.db_path: Path = Path(db_path)
+        try:
+            self.__db_path.parent.mkdir(parents=True, exist_ok=True)
+        except OSError as e:
+            raise StorageUnavailableError(f"Cannot create directory for database: {e}")
+        # Create the table on first run so we dont have to set it up manually.
+        # A corrupted or unreadable db file will fail here, and the factory will fall back to using CSV to store reports.
+        self._execute(self.CREATE_TABLE_SQL)
+
+    def _execute(self, sql: str, params: tuple = ()):
+        # Opens the database file, runs one sql statement, saves it and always closes.
+        # Returns rows for select, cursor.rowcount for insert/update/delete
+        try:
+            connection = sqlite3.connect(self.__db_path, timeout=5)
+        except sqlite3.Error as e:
+            raise StorageUnavailableError(f"Cannot open the database: {e}")
+        try:
+            #the row behave like dictionary : row["trip_id"]
+            connection.row_factory = sqlite3.Row
+            # ? placeholders will safe against sql injection
+            cursor = connection.execute(sql, params)
+            row - [dict(row) for row in cursor.fetchall()]
+            connection.commit()
+            return rows, cursor
+        except sqlite3.Error as e:
+            raise StorageUnavailableError(f"Database error: {e}")
+        finally:
+            connection.close()
+            
+
 
         
 
@@ -195,27 +251,6 @@ def delete(self, report_id: int) -> bool:
 
 
 
-def load_all_records():
-    #Loads all records from the CSV file and returns them as a list of dictionaries.
-    initialize_csv() #just to ensure the file actually exists. If not, it will create.
-    records = []
-    with open(CSV_FILE, mode='r', newline='', encoding='utf-8') as csvfile:
-        reader = csv.DictReader(csvfile) #built in CSV parser tool so it automatically pairs each value with the corresponding header in the CSV.
-        for row in reader:
-            records.append(row) #takes each row and appends it to the records list.
-        return records #sends the list of records back to the calling function.
-
-def save_record(record_data):
-    #Appends a new record to the CSV file.
-    initialize_csv()
-
-    #Fill missing fields with defaults if not provided
-    full_record = {field: record_data.get(field, "") for field in FIELDNAMES}
-
-    with open(CSV_FILE, mode='a', newline='', encoding='utf-8') as csvfile:
-        writer = csv.DictWriter(csvfile, fieldnames=FIELDNAMES)
-        writer.writerow(full_record) #takes the full_record dictionary and writes it as a new row in the CSV file.
-    return True
 
 #when AI and business rules have processed the incident, this function will update the record with the results.
 def update_record(trip_id, ai_results):
