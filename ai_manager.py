@@ -230,3 +230,29 @@ class ResponseValidator:
 
     def parse_and_validate(self, raw: str | None) -> dict | None:
         return self.validate(self.parse(raw))
+
+class AIManager:
+
+    def __init__(self, provider: AIProvider, max_retries: int = MAX_RETRIES,
+                 retry_delay_seconds: float = 4, sleep=time.sleep):
+        self._provider: AIProvider = provider
+        self._prompt_builder: PromptBuilder = PromptBuilder()
+        self._validator: ResponseValidator = ResponseValidator()
+        self._max_retries: int = max_retries
+        self._retry_delay: float = retry_delay_seconds
+        self._sleep = sleep  # a function; tests pass one that does nothing, so they don't actually wait
+
+    def process(self, report: IncidentReport) -> dict | None:
+        # [KEPT] Same behaviour as Part 1 process(): build -> call -> parse -> validate,
+        # retrying with a growing wait (4s, 8s, 12s). Returns None if every attempt fails.
+        prompt = self._prompt_builder.build(report)
+        for attempt in range(1, self._max_retries + 2):
+            validated = self._validator.parse_and_validate(self._provider.generate(prompt))
+            if validated is not None:
+                return validated
+            if attempt <= self._max_retries:
+                logging.info(f"Retrying AI call for report (attempt {attempt + 1})")
+                self._sleep(self._retry_delay * attempt)
+
+        logging.error(f"AI processing failed after {self._max_retries + 1} attempt(s) for trip {report.trip_id}")
+        return None
