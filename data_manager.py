@@ -93,16 +93,106 @@ def _to_datetime(self, value) -> datetime:
         return value
     return datetime.fromisoformat(str(value).strip())
 
+# CSVRepository - Inheritance, a RecordRepository that uses a CSV file. 
+# Refactor into class for CSV storage.
 
-def initialize_csv():
-    #Initializes the CSV file with headers if it doesn't exist or is empty.
-    if not os.path.exists(CSV_FILE) or os.path.getsize(CSV_FILE) == 0: #to check if the file exists and is not empty. / the not after if just means either condition can be true
-        with open(CSV_FILE, mode='w', newline='', encoding='utf-8') as csvfile:
-            writer = csv.DictWriter(csvfile, fieldnames=FIELDNAMES)
+class CSVRepository(RecordRepository):
+
+    def __init__(self, csv_path = DEFAULT_CSV_FILE):
+        super().__init__("CSV")
+        self.csv_path: Path = Path(csv_path)
+        if not self._csv_path.exists():
+            self._write_rows([])  # Create the file with headers if it doesn't exist.
+
+    def _read_rows(self) -> list[dict]:
+        # A file with the wrong header is backed up and replaced.
+        if not self._csv_path.exists():
+            self.write_rows([]) 
+        with open(self._csv_path, newline='', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            rows = list(reader)
+            header = reader.fieldnames
+        if header is not None and tuple(header) ! = IncidentReport.FIELDNAMES:
+            backup = se;f._csv_path.with_name(f"{self._csv_path.stem}.corrupt-{datetime.now():%Y%m%d%H%M%S}.csv")
+            os.replace(self._csv_path, backup)
+            logging,logging.warning(f"CSV had an unexpected header. Backed up to '{backup.name}', started a new file.")
+            self._write_rows([])  
+            return []
+        return rows
+    
+    def _write_rows(self, rows: list[dict]) -> None:
+        self._csv_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(self._csv_path, mode='w', newline='', encoding='utf-8') as f:
+            writer = csv.DictWriter(f, fieldnames=IncidentReport.FIELDNAMES)
             writer.writeheader()
-        logging.info(f"CSV file '{CSV_FILE}' initialized with headers.") #terminal based message to indicate that the CSV file has been initialized with headers or not.
-    else:
-        logging.info(f"CSV file '{CSV_FILE}' already exists and is not empty.") 
+            writer.writerows(rows)
+
+    def _to_row(self, report: IncidentReport) -> dict:
+        #CSV only stores strings: None -> "", datetime -> "2026-11-09T12:00:00".
+        row = {}
+        for key, value in report.__dict__.items():
+            if value is None:
+                row[key] = ""
+            elif isinstance(value, datetime):
+                row[key] = value.isoformat(timespec="seconds")
+            else:
+                row[key] = str(value)
+        return row
+
+# CRUD Operation
+def save(self, report: IncidentReport) -> int:
+    rows = self._read_rows()
+    highest_id = 0
+    for row in rows:
+        if row["report_id"].isdigit() and int(row["report_id"]) > highest_id:
+            highest_id = int(row["report_id"])
+    new_id = highest_id + 1
+    report.report_id = new_id
+    rows.append(self._to_row(report))
+    self._write_rows(rows)
+    return new_id
+
+def get_all(self) -> list[IncidentReport]:
+    reports = []
+    for row in self._read_rows():
+        try:
+            reports.append
+        except (KeyError, ValueError, TypeError) as e:
+            logging.warning(f"Skipping invalid row in '{self.csv_path}': {e}")
+    return reports
+
+def update(self, report: IncidentReport) -> bool:
+    # Part 1 matched on trip_id, but we matching it on report_id now.
+    rows = self._read_rows()
+    new_values = self._to_row(report)
+    for row in rows:
+        if row["report_id"] == str(report.report_id):
+            for column in UPDATEABLE_COLUMNS:
+                row[column] = new_values[column]
+            self._write_rows(rows)
+            return True
+    return False
+
+def delete(self, report_id: int) -> bool:
+    # Delete by report_id, not trip_id. This is more reliable because trip_id may not be unique.
+    rows = self._read_rows()
+    remaining = [r for r in rows if r["report_id"] != str(report_id)]
+    if len(remaining) == len(rows):
+        return False  # No row was deleted.
+    self._write_rows(remaining)
+    return True
+
+
+        
+
+
+
+
+
+
+
+
+
 
 
 def load_all_records():
