@@ -1,24 +1,22 @@
 import csv
 import os
 import logging
+import sqlite3
+from abc importABC, abstractmethod
+from datatime import datetime
+from pathlib import Path
+from models import IncidentReport
 
-CSV_FILE ="./logs_reports/reportcases.csv"
+#Paths are now relative to the current file's location, not to wherever the script is run from. 
+DEFAULT_CSV_FILE = Path(__file__).parent / "logs_reports" / "reportcases.csv"
+DEFAULT_DB_FILE = Path(__file__).parent / "logs_reports" / "reportcases.db"
 
-FIELDNAMES = [
-    "timestamp",
-    "trip_id",
-    "user_id",
-    "license_plate",
-    "report_details",
-    "category",
-    "contact_type",
-    "stated_effect",
-    "severity",
-    "confidence",
-    "reasoning",
-    "second_opinion_required",
-    "immediate_attention_required"
-]
+
+#When a passenger submits a report, the new description AND the new AI results are written.
+#The IDs and timestamp are never changed.
+UPDATEABLE_COLUMNS = ("report_details", "category", "contact_type", "stated_effect",
+                      "severity", "confidence", "reasoning",
+                      "second_opinion_required", "immediate_attention_required")
 
 def initialize_csv():
     #Initializes the CSV file with headers if it doesn't exist or is empty.
