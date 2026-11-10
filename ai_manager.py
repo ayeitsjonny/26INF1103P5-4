@@ -147,3 +147,86 @@ Return ONLY a JSON object, with no other text, no markdown code fences, and no e
 }}
 
 If the text is too vague to classify confidently, still return your best guess for every field but reflect that uncertainty in a low confidence value."""
+
+
+class ResponseValidator:
+
+    REQUIRED_KEYS = ["category", "contact_type", "stated_effect", "severity", "confidence", "reasoning"]
+
+    def parse(self, raw: str | None) -> dict | None:
+        if raw is None:
+            return None
+        # The model can wrap JSON in ```json fences or add stray text; grab just the {...} block.
+        match = re.search(r"\{.*\}", raw, re.DOTALL)
+        if not match:
+            logging.error(f"No JSON object found in AI response: {raw}")
+            return None
+        try:
+            data = json.loads(match.group())
+        except json.JSONDecodeError as e:
+            logging.error(f"Failed to parse JSON from AI response: {e} | raw={raw}")
+            return None
+        if not isinstance(data, dict):  # [NEW] e.g. the model returned a JSON list
+            logging.error(f"AI response JSON is not an object: {data}")
+            return None
+        return data
+
+    def validate(self, data: dict | None) -> dict | None:
+        if data is None:
+            return None
+
+        missing = [key for key in self.REQUIRED_KEYS if key not in data]
+        if missing:
+            logging.error(f"AI response missing keys: {missing} | data={data}")
+            return None
+
+        category = data["category"]
+        if category not in VALID_CATEGORIES:
+            logging.error(f"AI response has invalid category: {category}")
+            return None
+
+        contact_type = data["contact_type"]
+        if contact_type not in VALID_CONTACT_TYPES:
+            logging.error(f"AI response has invalid contact_type: {contact_type}")
+            return None
+
+        stated_effect = data["stated_effect"]
+        if stated_effect not in VALID_STATED_EFFECTS:
+            logging.error(f"AI response has invalid stated_effect: {stated_effect}")
+            return None
+
+        severity = data["severity"]
+        # bool is a subclass of int in Python, so reject True/False explicitly.
+        if isinstance(severity, bool) or not isinstance(severity, int) or severity not in (0, 1, 2):
+            logging.error(f"AI response has invalid severity: {severity}")
+            return None
+
+        # [KEPT] POLICY RULE: sexual_harassment is always severity 2.
+        if category == "sexual_harassment" and severity != 2:
+            logging.info(f"Overriding severity for sexual_harassment record from {severity} to 2")
+            severity = 2
+
+        confidence = data["confidence"]
+        if isinstance(confidence, bool) or not isinstance(confidence, (int, float)):
+            logging.error(f"AI response has invalid confidence type: {confidence}")
+            return None
+        if not (0.0 <= float(confidence) <= 1.0):
+            logging.error(f"AI response confidence out of range: {confidence}")
+            return None
+
+        reasoning = data["reasoning"]
+        if not isinstance(reasoning, str) or not reasoning.strip():
+            logging.error(f"AI response has invalid reasoning: {reasoning}")
+            return None
+
+        return {
+            "category": category,
+            "contact_type": contact_type,
+            "stated_effect": stated_effect,
+            "severity": severity,
+            "confidence": float(confidence),
+            "reasoning": reasoning.strip(),
+        }
+
+    def parse_and_validate(self, raw: str | None) -> dict | None:
+        return self.validate(self.parse(raw))
