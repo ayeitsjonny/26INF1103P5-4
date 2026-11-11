@@ -257,7 +257,21 @@ class SqliteRepository(RecordRepository):
         rows, cursor = self._execute("SELECT * FROM reportcases ORDER BY report_id")
         return [self._row_to_report(row) for row in rows]
 
+    def update(self, report: IncidentReport) -> bool:
+        # Only the UPDATEABLE_COLUMNS will be in this sql. User, trip, licenseplate and time will never change.
+        rows, cursor = self._execute(
+            "UPDATE reportcases SET report_details = ?, category = ?, contact_type = ?,"
+            "stated_effect = ?, severity = ?, confidence = ?, reasoning = ?, "
+            "second_opinion_required = ?, immediate_attention_required = ? WHERE report_id = ?",
+            (report.report_details, report.category, report.contact_type, report.stated_effect, report.severity, report.confidence, 
+             report.reasoning, report.second_opinion_required, report.immediate_attention_required, report.report_id),
+        )
+        return cursor.rowcount > 0
 
+    def delete(self, report_id: int) -> bool:
+        roqs, cursor = self._execute("DELETE FROM reportcases WHERE report_id = ?", (report_id,))
+        return cursor.rowcount > 0
+    
         
 
 
