@@ -18,15 +18,6 @@ SEVERITY_MIN, SEVERITY_MAX = 0, 2
 
 YES_NO = {"y": True, "yes": True, "n": False, "no": False}
 
-#Banner before the user starts the report
-def print_banner():
-    print("=" * 40)
-    print("       AI-ASSISTED SAFETY REPORTING")
-    print("=" * 40)
-    print("1. Write a report")
-    print("2. Display a report from Trip ID")
-    print("3. Display reports table")
-    print("4. Quit Program")
 
 #Function to get options
 def get_options():
@@ -43,13 +34,8 @@ def get_options():
             valid_option = True
     return user_option
 
-#Ensures input field is not empty else reject user input
-def non_empty_input(prompt):
-    while True:
-        user_input = input(prompt).strip()
-        if user_input:
-            return user_input
-        print("Input cannot be empty. Please try again.")
+
+
 
 #Prompt until the input passes the supplied validation function
 def get_valid_field(prompt, validator, error_msg):
@@ -107,53 +93,6 @@ def validate_confidence(confidence):
 def validate_yes_no(answer):
     """Map yes/no answers to booleans so the app can store a simple flag."""
     return YES_NO.get(answer.strip().lower())
-
-
-# --- field getters ---
-# Collect and validate the license plate number
-def get_license_plate():
-    return get_valid_field(
-        "Please enter the incident car license plate in (SXX1234A): ",
-        validate_license_plate,
-        "No license plate found. Please enter the license in (SXX1234A): "
-    )
-
-#Collect and validate the reporting user's ID
-def get_user_id():
-    return get_valid_field(
-        "Please input your user ID (user123): ",
-        validate_user_id,
-        "Invalid user ID. It must start with 'user' followed by 1-6 letters or numbers.",
-    )
-    
-#Collect and validate the trip identifier tied to the incident
-def get_trip_id():
-    return get_valid_field(
-        "Please input your Trip ID (trip123): ",
-        validate_trip_id,
-        "Invalid trip ID. It must start with 'trip' followed by 1-6 letters or numbers.",
-    )
-
-
-def get_report_details():
-    """Prompt the user for the incident narrative and sanitize it before validation."""
-    while True:
-        print("Please tell us what happened during the incident.")
-        print("Press Enter on an empty line when you have finished.")
-
-        report_lines = []
-        while True:
-            line = input()
-            if not line:
-                break
-            report_lines.append(line)
-
-        report_details = sanitize_report_details("\n".join(report_lines))
-        if validate_report_details(report_details) is not None:
-            return report_details
-
-        print(f"Report details must be between {REPORT_MIN_CHARACTERS} and {REPORT_MAX_CHARACTERS} characters. Please try again.")
-
 
 def get_category():
     options = ", ".join(sorted(VALID_CATEGORIES))
@@ -269,6 +208,84 @@ def misc_outputs(trigger):
         case "DM_Savefail":
             print("Error while saving entry - Returning to menu")
     return
+
+class IOManager:
+    
+    def __init__(self) -> None:
+        pass
+    
+    #Banner before the user starts the report
+    def print_banner(self) -> None:
+        print("=" * 40)
+        print("       AI-ASSISTED SAFETY REPORTING")
+        print("       Storage: SQLite")
+        print("=" * 40)
+        print("User Functions")
+        print("1. Write a report")
+        print("2. Edit my report")
+        print("=" * 40)
+        print("Admin Functions")
+        print("2. Display a report from Trip ID")
+        print("3. Display reports table")
+        print("4. Quit Program")
+    #Ensures input field is not empty else reject user input
+    def non_empty_input(self, prompt:str) -> str:
+        while True:
+            user_input = input(prompt).strip()
+            if user_input:
+                return user_input
+            print("Input cannot be empty. Please try again.")
+    
+    # ---------- Field getters ----------
+    # Collect and validate the license plate number
+    def get_license_plate(self) -> str:
+        return self._get_valid_field(
+            "Please enter the incident car license plate in (SXX1234A): ",
+            self._validator.license_plate,
+            "No license plate found. Please enter the license in (SXX1234A): ",
+        )
+
+    #Collect and validate the reporting user's ID
+    def get_user_id(self) -> str:
+        return self._get_valid_field(
+            "Please input your user ID (user123): ",
+            self._validator.user_id,
+            "Invalid user ID. It must start with 'user' followed by 1-6 numbers.",
+        )
+    
+    #Collect and validate the trip identifier tied to the incident
+    def get_trip_id(self) -> str:
+        return self._get_valid_field(
+            "Please input your Trip ID (trip123): ",
+            self._validator.trip_id,
+            "Invalid trip ID. It must start with 'trip' followed by 1-6 numbers.",
+        )
+
+    #Collects and validates users report id
+    def get_report_id(self) -> int:
+        return self._get_valid_field(
+            "Please enter the report ID: ",
+            self._validator.report_id,
+            "Report ID must be a positive whole number.",
+        )
+    
+    def get_report_details(self) -> str:
+        while True:
+            print("Please tell us what happened during the incident.")
+            print("Press Enter on an empty line when you have finished.")
+            lines = []
+            while True:
+                line = input()
+                if not line:
+                    break
+                lines.append(line)
+
+            details = self._validator.sanitize_report_details("\n".join(lines))
+            if self._validator.report_details(details) is not None:
+                return details
+            print(f"Report details must be between {self._validator.REPORT_MIN_CHARACTERS} and "
+                  f"{self._validator.REPORT_MAX_CHARACTERS} characters. Please try again.")
+    
 
 if __name__ == "__main__":
     try:
