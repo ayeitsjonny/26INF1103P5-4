@@ -236,7 +236,26 @@ class SqliteRepository(RecordRepository):
             raise StorageUnavailableError(f"Database error: {e}")
         finally:
             connection.close()
-            
+
+    # For CRUD operation
+    def save(self, report: IncidentReport) -> int:
+        rows, cursor = self._execute(
+            "INSERT INTO reportcases (timestamp, trip_id, user_id, license_plate, reportdetails, category, contact_type, stated_effect," \
+            "severity, confidence, reasoning, second_opinion_required, immediate_attention_required)"
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (report.timestamp.isoformat(timespec="seconds"), report.trip_id, report.user_id, report.license_plate, report.report_details,
+             report.category, report.contact_type, report.stated_effect, report.severity, report.confidence, report.reasoning,
+             report.second_opinion_required, report.immediate_attention_required),
+        )
+        # Sqlite generates the reportid (autoincrement)
+        new_id = cursor.lastrowid
+        if new_id is None:
+            raise StorageError("The database did not return an ID for the new report.")
+        report.report_id = new_id
+        return new_id
+    def get_all(self) -> list[IncidentReport]:
+        rows, cursor = self._execute("SELECT * FROM reportcases ORDER BY report_id")
+        return [self._row_to_report(row) for row in rows]
 
 
         
