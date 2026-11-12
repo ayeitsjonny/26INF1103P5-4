@@ -272,60 +272,38 @@ class SqliteRepository(RecordRepository):
         roqs, cursor = self._execute("DELETE FROM reportcases WHERE report_id = ?", (report_id,))
         return cursor.rowcount > 0
     
-        
+# Class DataManager class which other managers will talk to.
+# Aggregation and polymorphism is used here. 
+class DataManager:
+    def __init__(self, primary: RecordRepository, fallback: RecordRepository | None = None,
+                 status_message: str | None = None):
+        self._active: RecordRepository = primary
+        self._fallback: RecordRepository | None = fallback
+        self._status_message: str |None = status_message
+
+    @property
+    def storage_name(self) -> str:
+        return self._active.name
+
+    def pop_status_message(self) -> str | None:
+        # Returns the message one so IO manager wont repeat it
+        message = self._status_message
+        self._status_message = None
+        return message
+
+    def _switch_to_fallback(self, error: StorageUnavailableError) -> None:
+        # If the database fails while the program is running, switch to csv so the user's report will go somewhere instead of nowhere
+        # the CRUD methods below catch the error, call this then tries again
+        if self._fallback is None or self._active is self._fallback:
+            raise error
+        logging.warning(f"Database became unavailable, switching to CSV: {error}")
+        self._active = self._fallback
+        self._status_message = "Database error - switched to local CSV storage."
 
 
 
 
 
-
-
-
-
-
-
-
-#when AI and business rules have processed the incident, this function will update the record with the results.
-def update_record(trip_id, ai_results):
-    #Updates an existing incident record in the CSV file based on the provided incident_id and AI results.
-    records = load_all_records() #loads all records from the CSV file into a list of dictionaries.
-    updated = False #if the record is found and updated, this will be set to True.
-
-    for entry in records:
-        if entry["trip_id"] == str(trip_id): #converts the target ID to a string to prevent type mismatch bugs (e.g., matching integer 123 against string "123") 
-            entry["category"] = ai_results.get("category", entry["category"])
-            entry["severity"] = ai_results.get("severity", entry["severity"])
-            entry["confidence"] = ai_results.get("confidence", entry["confidence"])
-            # entry["STATUS"] = "PROCESSED" # status is not utilized
-            updated = True
-            break
-
-    if updated:
-        with open(CSV_FILE, mode='w', newline='', encoding='utf-8') as csvfile:
-            writer = csv.DictWriter(csvfile, fieldnames=FIELDNAMES)
-            writer.writeheader()
-            writer.writerows(records)
-
-    return updated
-
-#Delete function 
-def delete_record(trip_id):
-    #deletes an incident record from the CSV file based on its ID
-    records = load_all_records()
-    initial_count = len(records) #counts how many rows exist before deletion.
-
-    #keep every record except the one that matches the incident_id that we are deleting
-    filtered_records = [record for record in records if record["INCIDENT_ID"] != str(trip_id)]
-
-    #if the list is shorter, it means the record is deleted
-    if len(filtered_records) < initial_count:
-        with open(CSV_FILE, mode='w', newline='', encoding='utf-8') as csvfile:
-            writer = csv.DictWriter(csvfile, fieldnames=FIELDNAMES)
-            writer.writeheader()
-            writer.writerows(filtered_records)
-        return True
-    
-    return False
 
 def filter_by_severity(severity_level):
     #Filters records in the CSV file based on the provided severity level.
