@@ -300,7 +300,35 @@ class DataManager:
         self._active = self._fallback
         self._status_message = "Database error - switched to local CSV storage."
 
+    #CRUD operation
+    def save_report(self, report: IncidentReport) -> int:
+        try:
+            return self._active.save(report)
+        except StorageUnavailableError as e:
+            self._switch_to_fallback(e)
+            return self._active.save(report)
 
+    def get_all_reports(self) -> list[IncidentReport]:
+        try
+            return self._active.get_all()
+        except StorageUnavailableError as e:
+            self._switch_to_fallback(e)
+            return self._active.get_all()
+
+    def update_report(self, report: IncidentReport) -> bool:
+        try:
+            return self._active.update(report)
+        except StorageUnavailableError as e:
+            self._switch_to_fallback(e)
+            return self._active.update(report)
+
+    def delete_report(self, report_id: int) -> bool:
+        try:
+            return self._active.delete(report_id)
+        except StorageUnavailableError as e:
+            self._switch_to_fallback(e)
+            return self._active.delete(report_id)
+    
 
 
 
