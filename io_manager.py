@@ -26,7 +26,10 @@ class IOManager:
         QUIT_OPTION,
     )
     
-    
+    def __init__(self):
+        self._validator: InputValidator = InputValidator()
+        
+    #Displays the menu
     def show_menu(self, storage_name: str) -> None:
         print("=" * 40)
         print("       AI-ASSISTED SAFETY REPORTING")
@@ -70,35 +73,39 @@ class IOManager:
         input("Press enter to continue")
 
     # ---------- Field getters ----------
+    #Gets License Plate from user
     def get_license_plate(self) -> str:
-        return self._get_valid_field(
+        return self._validator.get_valid_field(
             "Please enter the incident car license plate in (SXX1234A): ",
             self._validator.license_plate,
             "No license plate found. Please enter the license in (SXX1234A): ",
         )
 
+    #Get User's userID
     def get_user_id(self) -> str:
-        return self._get_valid_field(
+        return self._validator.get_valid_field(
             "Please input your user ID (user123): ",
             self._validator.user_id,
             "Invalid user ID. It must start with 'user' followed by 1-6 numbers.",
         )
 
+    #Gets tripID
     def get_trip_id(self) -> str:
-        return self._get_valid_field(
+        return self._validator.get_valid_field(
             "Please input your Trip ID (trip123): ",
             self._validator.trip_id,
             "Invalid trip ID. It must start with 'trip' followed by 1-6 numbers.",
         )
 
+    #Gets report ID
     def get_report_id(self) -> int:
-        # [NEW]
-        return self._get_valid_field(
+        return self._validator.get_valid_field(
             "Please enter the report ID: ",
             self._validator.report_id,
             "Report ID must be a positive whole number.",
         )
 
+    #Gets report details from users
     def get_report_details(self) -> str:
         while True:
             print("Please tell us what happened during the incident.")
@@ -116,9 +123,8 @@ class IOManager:
             print(f"Report details must be between {self._validator.REPORT_MIN_CHARACTERS} and "
                   f"{self._validator.REPORT_MAX_CHARACTERS} characters. Please try again.")
 
+    #Builds the report from user provided information
     def build_report(self) -> IncidentReport:
-        # [CHANGED] Returns an IncidentReport instead of a dict. The timestamp is
-        # filled in automatically by IncidentReport.
         report = IncidentReport(
             user_id=self.get_user_id(),
             trip_id=self.get_trip_id(),
@@ -128,28 +134,29 @@ class IOManager:
         print("\nReport captured. Analysing...")
         return report
 
+    #Filters report by severity or category
     def get_filter_choice(self) -> tuple:
-        # [NEW] Returns ("severity", int) or ("category", str).
-        choice = self._get_valid_field(
+        choice = self._validator.get_valid_field(
             "Filter by (1) severity or (2) category: ",
             self._validator.filter_choice,
             "Please enter 1 or 2.",
         )
         if choice == "1":
-            severity = self._get_valid_field(
+            severity = self._validator.get_valid_field(
                 "Severity (0-2): ", self._validator.severity, "Severity must be 0, 1 or 2.")
             return "severity", severity
         options = ", ".join(self._validator.VALID_CATEGORIES)
-        category = self._get_valid_field(
+        category = self._validator.get_valid_field(
             f"Category ({options}): ", self._validator.category, f"Choose one of: {options}.")
         return "category", category
 
+    #Confirmation to delete report
     def confirm(self, prompt: str) -> bool:
-        return self._get_valid_field(f"{prompt} (y/n): ", self._validator.yes_no, "Please answer y or n.")
+        return self._validator.get_valid_field(f"{prompt} (y/n): ", self._validator.yes_no, "Please answer y or n.")
 
     # ---------- Output ----------
+    #Displays a report
     def display_record(self, report: IncidentReport) -> None:
-        # [CHANGED] Now also shows report_id and the AI/logic results.
         immediate = "YES" if report.immediate_attention_required else "no"
         second_opinion = "YES" if report.second_opinion_required else "no"
         print("=" * 50)
@@ -164,7 +171,6 @@ class IOManager:
         print("=" * 50)
 
     def display_records(self, reports: list[IncidentReport]) -> None:
-        # [NEW] Replaces the for-loop that used to sit in main.py.
         if not reports:
             self.show_result("No reports found.")
             return
@@ -172,6 +178,7 @@ class IOManager:
             self.display_record(report)
             self.pause()
 
+    #Display summary of all reports
     def report_summary(self, reports: list[IncidentReport], title: str = "Incident Report Summary") -> None:
         if not reports:
             print(f"\n{title} - 0 reports")
@@ -182,42 +189,38 @@ class IOManager:
                    "confidence", "second_opinion_required", "immediate_attention_required", "timestamp"]
         summary = pd.DataFrame([r.to_dict() for r in reports])[columns]
 
-        # Oldest emergency / high-severity case first (same ordering as Part 1).
         summary = summary.sort_values(
             by=["immediate_attention_required", "severity", "timestamp"],
             ascending=[False, False, True],
         )
 
-        # [CHANGED] "—" replaced with "-": the long dash showed as "�" in some Windows terminals.
         print(f"\n{title} - {len(reports)} report(s)")
         print(summary.to_string(index=False))
-        # [CHANGED] Real booleans now, so sum() counts True values directly.
         print(f"\nImmediate Attention Needed - {int(summary['immediate_attention_required'].sum())}")
         print(f"Manual Review - {int(summary['second_opinion_required'].sum())}\n")
 
+    
     def show_saved(self, report: IncidentReport, route: str, action: str = "submitted") -> None:
         print(f"\nReport #{report.report_id} {action} successfully.")
         print(f"AI classification: {report.category} (severity {report.severity}, confidence {report.confidence})")
         print(f"Routed to: {route}")
-        self.pause()   # [NEW] so the result is read before the menu is printed again
-
+        self.pause()
+    
+    #Shows any information
     def show_info(self, message: str) -> None:
         print(message)
 
+    #Shows any printed message
     def show_result(self, message: str) -> None:
-        # [NEW] Final message of an action (e.g. "Report #3 deleted."): wait for
-        # Enter so it does not scroll away when the menu is printed again.
         print(f"\n{message}")
         self.pause()
 
+    #If there are any warnings
     def show_warning(self, message: str) -> None:
-        # [NEW] e.g. "Database unavailable - using local CSV storage instead."
-        # Waits for Enter so the warning is not pushed off screen by the menu.
         print(f"\n[WARNING] {message}")
         self.pause()
-
+        
+    #If there are any errors
     def show_error(self, message: str) -> None:
-        # [CHANGED] Waits for Enter: before, the menu was printed straight after
-        # the error, so the message scrolled away before it could be read.
         print(f"\n[ERROR] {message}")
         input("Press enter to return to the menu")
