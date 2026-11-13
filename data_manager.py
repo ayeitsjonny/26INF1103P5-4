@@ -328,27 +328,52 @@ class DataManager:
         except StorageUnavailableError as e:
             self._switch_to_fallback(e)
             return self._active.delete(report_id)
+    #searching / filtering 
+    def get_report(self, report_id: int) -> IncidentReport | None:
+        for report in self.get_all_reports():
+            if report.report_id == report_id:
+                return report
+        return None
+
+    def get_reports_by_trip(self, trip_id: str) -> list[IncidentReport]:
+        return [r for r in self.get_all_reports() if r.trip_id.lower() == trip_id.lower()]
+
+    def get_reports_by_user(self, user_id: str, since: datetime | None = None) -> list[IncidentReport]:
+        results = []
+        for report in self.get_all_reports():
+            if report.user_id.lower() == user_id.lower():
+                if since is None of report.timestamp >= since:
+                    results.append(report)
+        return results
+
+    def count_reports_for_trip(self, trip_id: str, user_id: str) -> int:
+        # Used by ReportLimitRule in Logic manager
+        count = 0
+        for report in self.get_reports_by_trip(trip_id):
+            if report.user_id.lower() == user_id.lower():
+                count += 1
+        return count
+
+    def filter_by_severity(self, severity: int) -> list[IncidentReport]:
+        #returns IncidentReport objects
+        return [r for r in self.get_all_reports() if r.severity == severity]
     
+    def filter_by_category(self, category: str) -> list[IncidentReport]:
+        #Case sensitive partial match
+        return [r for r in self.get_all_reports() if category.lower() in (r.category or "").lower()]
+    
+#StorageFactory class, hides the "SQlite first, CSV as fallback" decision from main.py
+class StorageFactory:
+    def __init__(self, csv_path=DEFAULT_CSV_FILE, db_path=DEFAULT_DB_FILE):
+        self._csv_path = csv_path
+        self._db_path = db_path
 
-
-
-
-def filter_by_severity(severity_level):
-    #Filters records in the CSV file based on the provided severity level.
-    records = load_all_records()
-    return [record for record in records if str(record.get("severity")) == str(severity_level)]
-
-def filter_by_category(category):
-    #Filters records in the CSV file based on the provided category.
-    records = load_all_records()
-    return [record for record in records if category.lower() in record.get("category", "").lower()]
-
-def get_records_by_user(user_id):
-    #Retrieves all records associated with the provided user_id.
-    records = load_all_records()
-    return [record for record in records if str(record.get("user_id").lower()) == str(user_id).lower()]
-
-def get_records_by_trip(trip_id):
-    #Retrieves all records associated with the provided trip_id.
-    records = load_all_records()
-    return [record for record in records if str(record.get("trip_id").lower()) == str(trip_id).lower()]
+    def create_data_manager(self) -> DataManager:
+        csv_repository = CSVRepository(self._csv_path)
+        try:
+            sqlite_repository = SqliteRepository(self._db_path)
+            return DataManager(sqlite_repository, fallback=csv_repository)
+        except StorageError as e:
+            logging.warning(f"Database unavailable now, using CSV fallback: {e}")
+            return DataManager(csv_repository, status_message="Database unavailable - using local CSV storage instead.")
+        
