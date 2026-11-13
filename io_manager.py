@@ -5,51 +5,66 @@ import pandas as pd
 
 class IOManager:
     
+    RETURN_OPTION = "Return to Menu Selection"
+    QUIT_OPTION = "Quit Program"
+
     #User's Menu
     USER_OPTIONS = (
-        ""
         "Write a report",
         "Edit my report",
+        RETURN_OPTION,
+        QUIT_OPTION,
     )
     
     #Admin's Menu
     ADMIN_OPTIONS = (
-            ""
-            "Display reports from Trip ID",
-            "Display reports table",
-            "Filter reports by severity or category",
-            "Delete a report",
-            "Quit Program",
-        )
+        "Display reports from Trip ID",
+        "Display reports table",
+        "Filter reports by severity or category",
+        "Delete a report",
+        RETURN_OPTION,
+        QUIT_OPTION,
+    )
     
     
-    def __init__(self):
-        self._validator: InputValidator = InputValidator()
-        
-    # ---------- Menu ----------
     def show_menu(self, storage_name: str) -> None:
         print("=" * 40)
         print("       AI-ASSISTED SAFETY REPORTING")
         print(f"       Storage: {storage_name}")
         print("=" * 40)
-        number = 1
-        print("       User Functions:")
-        for label in self.USER_OPTIONS:
+        print("Select Menu:")
+        print("1. User Functions")
+        print("2. Admin Functions")
+        print("3. Quit Program")
+
+    #For proof of concept. There's a User menu and a Admin menu
+    def get_menu_choice(self) -> str:
+        while True:
+            raw = input("Select Menu: ").strip()
+            if raw == "1":
+                return "user"
+            if raw == "2":
+                return "admin"
+            if raw == "3":
+                return "quit"
+            print("Please select 1, 2, or 3.")
+
+    #Show the menu they are "login" as
+    def show_menu_options(self, menu_type: str) -> None:
+        options = self.USER_OPTIONS if menu_type == "user" else self.ADMIN_OPTIONS
+        title = "User Functions" if menu_type == "user" else "Admin Functions"
+        print(f"\n{title}:")
+        for number, label in enumerate(options, start=1):
             print(f"{number}. {label}")
-            number += 1
-        print("=" * 40)
-        print("       Admin Functions:")
-        for label in self.ADMIN_OPTIONS:
-            print(f"{number}. {label}")
-            number += 1
-        
-    def get_menu_option(self) -> int:
-        # [CHANGED] Part 1 returned None on non-numbers; now it keeps asking.
+
+    #Selection from menu
+    def get_menu_option(self, menu_type: str) -> int:
+        options = self.USER_OPTIONS if menu_type == "user" else self.ADMIN_OPTIONS
         while True:
             raw = input("Select Option: ").strip()
-            if raw.isdigit() and 1 <= int(raw) <= len(self.MENU_OPTIONS):
+            if raw.isdigit() and 1 <= int(raw) <= len(options):
                 return int(raw)
-            print(f"Please select a valid option (1-{len(self.MENU_OPTIONS)}).")
+            print(f"Please select a valid option (1-{len(options)}).")
 
     def pause(self) -> None:
         input("Press enter to continue")
