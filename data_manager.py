@@ -2,8 +2,8 @@ import csv
 import os
 import logging
 import sqlite3
-from abc importABC, abstractmethod
-from datatime import datetime
+from abc import ABC, abstractmethod
+from datetime import datetime
 from pathlib import Path
 from models import IncidentReport
 
@@ -59,39 +59,39 @@ class RecordRepository(ABC):
 # Shared by both children, turn a stored row into an IncidentReport object.
 # CSV gives everything as str such as "True" or "2", SQlite gives 1/0 and integers.
 # Converting in one place means both children return the same type of object. This is addresses LSP.
-def _row_to_report(self, row: dict) -> IncidentReport:
-    return IncidentReport(
-        report_id = self._optional(row.get("report_id"), int),
-        timestamp = self._todatetime(row.get("timestamp")),
-        trip_id = str(row["trip_id"]),
-        user_id = str(row["user_id"]),
-        license_plate = str(row["license_plate"]),
-        report_details = str(row["license_plate"]),
-        category = self._optional(row.get("category"), str),
-        contact_type = self._optional(row.get("contact_type"), str),
-        stated_effect = self._optional(row.get("stated_effect"), str),
-        severity = self._optional(row.get("severity"), int),
-        confidence = self._optional(row.get("confidence"), float),
-        reasoning = self._optional(row.get("reasoning"), str),
-        second_opinion_required = self._to_bool(row.get("second_opinion_required")),
-        immediate_attention_required = self._to_bool(row.get("immediate_attention_required")),
-    )
+    def _row_to_report(self, row: dict) -> IncidentReport:
+        return IncidentReport(
+            report_id = self._optional(row.get("report_id"), int),
+            timestamp = self._to_datetime(row.get("timestamp")),
+            trip_id = str(row["trip_id"]),
+            user_id = str(row["user_id"]),
+            license_plate = str(row["license_plate"]),
+            report_details = str(row["report_details"]),
+            category = self._optional(row.get("category"), str),
+            contact_type = self._optional(row.get("contact_type"), str),
+            stated_effect = self._optional(row.get("stated_effect"), str),
+            severity = self._optional(row.get("severity"), int),
+            confidence = self._optional(row.get("confidence"), float),
+            reasoning = self._optional(row.get("reasoning"), str),
+            second_opinion_required = self._to_bool(row.get("second_opinion_required")),
+            immediate_attention_required = self._to_bool(row.get("immediate_attention_required")),
+        )
 
-def _optional(self, value, convert):
-    # Empty CSV cell or null in SQLite is None. If not None, convert to the right type.
-    if value is None or str(value).strip() == "":
-        return None
-    return convert(value)
+    def _optional(self, value, convert):
+        # Empty CSV cell or null in SQLite is None. If not None, convert to the right type.
+        if value is None or str(value).strip() == "":
+            return None
+        return convert(value)
 
-def _to_bool(self, value) -> bool:
-    if isinstance(value, str):
-        return value.strip().lower() in ("true", "1")
-    return bool(value)
+    def _to_bool(self, value) -> bool:
+        if isinstance(value, str):
+            return value.strip().lower() in ("true", "1")
+        return bool(value)
 
-def _to_datetime(self, value) -> datetime:
-    if isinstance(value, datetime):
-        return value
-    return datetime.fromisoformat(str(value).strip())
+    def _to_datetime(self, value) -> datetime:
+        if isinstance(value, datetime):
+            return value
+        return datetime.fromisoformat(str(value).strip())
 
 # CSVRepository - Inheritance, a RecordRepository that uses a CSV file. 
 # Refactor into class for CSV storage.
@@ -100,22 +100,22 @@ class CSVRepository(RecordRepository):
 
     def __init__(self, csv_path = DEFAULT_CSV_FILE):
         super().__init__("CSV")
-        self.csv_path: Path = Path(csv_path)
+        self._csv_path: Path = Path(csv_path)
         if not self._csv_path.exists():
             self._write_rows([])  # Create the file with headers if it doesn't exist.
 
     def _read_rows(self) -> list[dict]:
         # A file with the wrong header is backed up and replaced.
         if not self._csv_path.exists():
-            self.write_rows([]) 
+            self._write_rows([]) 
         with open(self._csv_path, newline='', encoding='utf-8') as f:
             reader = csv.DictReader(f)
             rows = list(reader)
             header = reader.fieldnames
-        if header is not None and tuple(header) ! = IncidentReport.FIELDNAMES:
-            backup = se;f._csv_path.with_name(f"{self._csv_path.stem}.corrupt-{datetime.now():%Y%m%d%H%M%S}.csv")
+        if header is not None and tuple(header) != IncidentReport.FIELDNAMES:
+            backup = self._csv_path.with_name(f"{self._csv_path.stem}.corrupt-{datetime.now():%Y%m%d%H%M%S}.csv")
             os.replace(self._csv_path, backup)
-            logging,logging.warning(f"CSV had an unexpected header. Backed up to '{backup.name}', started a new file.")
+            logging.warning(f"CSV had an unexpected header. Backed up to '{backup.name}', started a new file.")
             self._write_rows([])  
             return []
         return rows
@@ -140,54 +140,54 @@ class CSVRepository(RecordRepository):
         return row
 
 # CRUD Operation
-def save(self, report: IncidentReport) -> int:
-    rows = self._read_rows()
-    highest_id = 0
-    for row in rows:
-        if row["report_id"].isdigit() and int(row["report_id"]) > highest_id:
-            highest_id = int(row["report_id"])
-    new_id = highest_id + 1
-    report.report_id = new_id
-    rows.append(self._to_row(report))
-    self._write_rows(rows)
-    return new_id
+    def save(self, report: IncidentReport) -> int:
+        rows = self._read_rows()
+        highest_id = 0
+        for row in rows:
+            if row["report_id"].isdigit() and int(row["report_id"]) > highest_id:
+                highest_id = int(row["report_id"])
+        new_id = highest_id + 1
+        report.report_id = new_id
+        rows.append(self._to_row(report))
+        self._write_rows(rows)
+        return new_id
 
-def get_all(self) -> list[IncidentReport]:
-    reports = []
-    for row in self._read_rows():
-        try:
-            reports.append
-        except (KeyError, ValueError, TypeError) as e:
-            logging.warning(f"Skipping invalid row in '{self.csv_path}': {e}")
-    return reports
+    def get_all(self) -> list[IncidentReport]:
+        reports = []
+        for row in self._read_rows():
+            try:
+                reports.append(self._row_to_report(row))
+            except (KeyError, ValueError, TypeError) as e:
+                logging.warning(f"Skipping invalid row in '{self._csv_path}': {e}")
+        return reports
 
-def update(self, report: IncidentReport) -> bool:
-    # Part 1 matched on trip_id, but we matching it on report_id now.
-    rows = self._read_rows()
-    new_values = self._to_row(report)
-    for row in rows:
-        if row["report_id"] == str(report.report_id):
-            for column in UPDATEABLE_COLUMNS:
-                row[column] = new_values[column]
-            self._write_rows(rows)
-            return True
-    return False
+    def update(self, report: IncidentReport) -> bool:
+        # Part 1 matched on trip_id, but we matching it on report_id now.
+        rows = self._read_rows()
+        new_values = self._to_row(report)
+        for row in rows:
+            if row["report_id"] == str(report.report_id):
+                for column in UPDATEABLE_COLUMNS:
+                    row[column] = new_values[column]
+                self._write_rows(rows)
+                return True
+        return False
 
-def delete(self, report_id: int) -> bool:
-    # Delete by report_id, not trip_id. This is more reliable because trip_id may not be unique.
-    rows = self._read_rows()
-    remaining = [r for r in rows if r["report_id"] != str(report_id)]
-    if len(remaining) == len(rows):
-        return False  # No row was deleted.
-    self._write_rows(remaining)
-    return True
+    def delete(self, report_id: int) -> bool:
+        # Delete by report_id, not trip_id. This is more reliable because trip_id may not be unique.
+        rows = self._read_rows()
+        remaining = [r for r in rows if r["report_id"] != str(report_id)]
+        if len(remaining) == len(rows):
+            return False  # No row was deleted.
+        self._write_rows(remaining)
+        return True
 
 # Database integration
 # Inheritance is practiced here, a RecordRepository that uses an SQLite database.
 
 class SqliteRepository(RecordRepository):
 
-    CREATE TABLE_SQL = """
+    CREATE_TABLE_SQL = """
         CREATE TABLE IF NOT EXISTS reportcases (
             report_id INTEGER PRIMARY KEY AUTOINCREMENT,
             timestamp TEXT NOT NULL,
@@ -208,7 +208,7 @@ class SqliteRepository(RecordRepository):
 
     def __init__(self, db_path = DEFAULT_DB_FILE):
         super().__init__("SQLite")
-        self.db_path: Path = Path(db_path)
+        self.__db_path: Path = Path(db_path)
         try:
             self.__db_path.parent.mkdir(parents=True, exist_ok=True)
         except OSError as e:
@@ -229,7 +229,7 @@ class SqliteRepository(RecordRepository):
             connection.row_factory = sqlite3.Row
             # ? placeholders will safe against sql injection
             cursor = connection.execute(sql, params)
-            row - [dict(row) for row in cursor.fetchall()]
+            rows = [dict(row) for row in cursor.fetchall()]
             connection.commit()
             return rows, cursor
         except sqlite3.Error as e:
@@ -240,7 +240,7 @@ class SqliteRepository(RecordRepository):
     # For CRUD operation
     def save(self, report: IncidentReport) -> int:
         rows, cursor = self._execute(
-            "INSERT INTO reportcases (timestamp, trip_id, user_id, license_plate, reportdetails, category, contact_type, stated_effect," \
+            "INSERT INTO reportcases (timestamp, trip_id, user_id, license_plate, report_details, category, contact_type, stated_effect," \
             "severity, confidence, reasoning, second_opinion_required, immediate_attention_required)"
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (report.timestamp.isoformat(timespec="seconds"), report.trip_id, report.user_id, report.license_plate, report.report_details,
@@ -269,7 +269,7 @@ class SqliteRepository(RecordRepository):
         return cursor.rowcount > 0
 
     def delete(self, report_id: int) -> bool:
-        roqs, cursor = self._execute("DELETE FROM reportcases WHERE report_id = ?", (report_id,))
+        rows, cursor = self._execute("DELETE FROM reportcases WHERE report_id = ?", (report_id,))
         return cursor.rowcount > 0
     
 # Class DataManager class which other managers will talk to.
@@ -309,7 +309,7 @@ class DataManager:
             return self._active.save(report)
 
     def get_all_reports(self) -> list[IncidentReport]:
-        try
+        try:
             return self._active.get_all()
         except StorageUnavailableError as e:
             self._switch_to_fallback(e)
@@ -342,7 +342,7 @@ class DataManager:
         results = []
         for report in self.get_all_reports():
             if report.user_id.lower() == user_id.lower():
-                if since is None of report.timestamp >= since:
+                if since is None or report.timestamp >= since:
                     results.append(report)
         return results
 
