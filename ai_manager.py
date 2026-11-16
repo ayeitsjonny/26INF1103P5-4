@@ -1,3 +1,23 @@
+# ai_manager.py — AI Manager (Part 2)
+#
+# [CHANGED] Overall structure:
+#   Part 1: module-level functions (build_prompt, call_api, parse_response,
+#           validate_response, process) + a client created on import.
+#   Part 2:
+#     AIProvider (interface)           -> "something that can answer a prompt"
+#        ├── GeminiProvider            -> real Gemini API (used by the app)
+#        └── MockProvider              -> canned answers, used ONLY by the tests
+#     PromptBuilder                    -> builds the prompt   (same text as Part 1)
+#     ResponseValidator                -> parse + validate    (same rules as Part 1)
+#     AIManager                        -> retry loop that ties them together
+#
+# [KEPT] The prompt text, the valid value sets, the sexual_harassment
+#        severity override, the timeout and the retry/back-off timings.
+# [REMOVED] Duplicated setup block (load_dotenv / MODEL / RuntimeError were
+#           copy-pasted twice in Part 1) and duplicated entries in VALID_CATEGORIES.
+# [MOVED] load_dotenv() and logging.basicConfig() now live in main.py, so
+#         importing this file (e.g. in tests) has no side effects.
+
 import json
 import logging
 import os
@@ -5,6 +25,7 @@ import re
 import time
 from abc import ABC, abstractmethod
 
+from InputValidator import InputValidator
 from models import IncidentReport
 
 MODEL = "gemini-3.5-flash-lite"
@@ -25,6 +46,7 @@ VALID_CATEGORIES = {
 }
 VALID_CONTACT_TYPES = {"none", "verbal", "physical"}
 VALID_STATED_EFFECTS = {"none", "distress", "fear_for_safety"}
+
 
 class AIConfigurationError(Exception):
     # [NEW] Replaces Part 1's RuntimeError on import when GEMINI_API_KEY is missing.
@@ -88,24 +110,34 @@ class GeminiProvider(AIProvider):
             logging.error(f"Could not reach Gemini: {e}")
             return None
 
-    class MockProvider(AIProvider):
-        # [CHANGED] Part 1 call_api_mock(). Now a proper provider used by the tests,
-        # so tests run without a live API (brief section 8).
-        # It is NOT used by the running app (brief section 7: no hard-coded AI answers).
 
-        def __init__(self, responses: list):
-            # responses: raw strings (or None) returned in order. The last one repeats.
-            self._responses: list = responses
-            self.calls: int = 0
+class MockProvider(AIProvider):
+    # [CHANGED] Part 1 call_api_mock(). Now a proper provider used by the tests,
+    # so tests run without a live API (brief section 8).
+    # It is NOT used by the running app (brief section 7: no hard-coded AI answers).
 
-        def generate(self, prompt: str) -> str | None:
-            index = self.calls
-            if index >= len(self._responses):
-                index = len(self._responses) - 1
-            self.calls += 1
-            return self._responses[index]
+    def __init__(self, responses: list):
+        # responses: raw strings (or None) returned in order. The last one repeats.
+        self._responses: list = responses
+        self.calls: int = 0
 
+    def generate(self, prompt: str) -> str | None:
+        index = self.calls
+        if index >= len(self._responses):
+            index = len(self._responses) - 1
+        self.calls += 1
+        return self._responses[index]
+
+
+# ======================================================================
+# [CHANGED] PromptBuilder — Part 1 build_prompt(), text unchanged.
+# ======================================================================
 class PromptBuilder:
+
+    # COMPOSITION: owns an InputValidator, used to scrub PII from the report text
+    # before it is placed in the prompt (so nothing unredacted reaches the API).
+    def __init__(self, validator: InputValidator | None = None):
+        self._validator: InputValidator = validator or InputValidator()
 
     def build(self, report: IncidentReport) -> str:
         """
@@ -113,8 +145,11 @@ class PromptBuilder:
         not needed by the AI because it classifies the free text only.
         Severity is derived from contact_type, repetition and stated_effect
         (POHA research), except sexual_harassment which is always severity 2.
+
+        [PDPA] report_details is scrubbed of direct identifiers (NRIC, email,
+        phone) before it leaves the application; the stored report is unchanged.
         """
-        report_details = report.report_details
+        report_details = self._validator.sanitize_report_details(report.report_details)
 
         return f"""You are classifying a safety report submitted on a ride-hailing platform, using a fixed rubric based on Singapore's Protection from Harassment Act (POHA). Do not make a subjective overall judgment — apply the criteria below mechanically.
 
@@ -149,6 +184,10 @@ Return ONLY a JSON object, with no other text, no markdown code fences, and no e
 If the text is too vague to classify confidently, still return your best guess for every field but reflect that uncertainty in a low confidence value."""
 
 
+# ======================================================================
+# [CHANGED] ResponseValidator — Part 1 parse_response() + validate_response(),
+# same checks, now methods of one class.
+# ======================================================================
 class ResponseValidator:
 
     REQUIRED_KEYS = ["category", "contact_type", "stated_effect", "severity", "confidence", "reasoning"]
@@ -231,6 +270,15 @@ class ResponseValidator:
     def parse_and_validate(self, raw: str | None) -> dict | None:
         return self.validate(self.parse(raw))
 
+
+# ======================================================================
+# AIManager
+#  - AGGREGATION: the provider is passed in (Gemini in the app, Mock in tests)
+#    and exists independently of the AIManager.
+#  - COMPOSITION: PromptBuilder and ResponseValidator are created and owned here.
+#  - POLYMORPHISM: process() calls self._provider.generate() without caring
+#    whether it is Gemini or the mock.
+# ======================================================================
 class AIManager:
 
     def __init__(self, provider: AIProvider, max_retries: int = MAX_RETRIES,
