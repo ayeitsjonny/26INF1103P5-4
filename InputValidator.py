@@ -2,7 +2,8 @@ import re
 
 class InputValidator:
     #Regex for User,Trip,License plate
-    LICENSE_PLATE_PATTERN = r"\bS[A-Z]{0,3}\s*\d{1,4}\s*[A-Z]\b"
+    # Anchored start-to-end so trailing/leading junk (e.g. "SGX1234A junk") is rejected.
+    LICENSE_PLATE_PATTERN = r"^S[A-Z]{0,3}\s*\d{1,4}\s*[A-Z]$"
     TRIP_ID_PATTERN = r"^(TRIP)[0-9]{1,6}$"
     USER_ID_PATTERN = r"^(USER)[0-9]{1,6}$"
     
@@ -18,7 +19,7 @@ class InputValidator:
     SEVERITY_MIN = 0
     SEVERITY_MAX = 2
 
-    
+    #Ensure that user doesn't enter nothing
     def non_empty_input(self, prompt: str) -> str:
         while True:
             value = input(prompt).strip()
@@ -26,8 +27,8 @@ class InputValidator:
                 return value
             print("Input cannot be empty. Please try again.")
 
+    #Ensures that user field are valid
     def get_valid_field(self, prompt: str, check, error_msg: str):
-        # `check` is one of the InputValidator methods. Keeps asking until it returns a value.
         while True:
             result = check(self.non_empty_input(prompt))
             if result is not None:
@@ -36,10 +37,9 @@ class InputValidator:
             
     #Ensures that License plate matches Singaporean License plate & is valid
     def license_plate(self, value: str) -> str | None:
-        match = re.match(self.LICENSE_PLATE_PATTERN, value, re.IGNORECASE)
+        match = re.match(self.LICENSE_PLATE_PATTERN, value.strip(), re.IGNORECASE)
         if match is None:
             return None
-        # [CHANGED] Stored upper-case without spaces, e.g. "sab 1234 c" -> "SAB1234C".
         return match.group().replace(" ", "").upper()
 
     #Ensures Trip ID follows TRIP123 format
