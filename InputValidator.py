@@ -2,10 +2,17 @@ import re
 
 class InputValidator:
     #Regex for User,Trip,License plate
-    # Anchored start-to-end so trailing/leading junk (e.g. "SGX1234A junk") is rejected.
     LICENSE_PLATE_PATTERN = r"^S[A-Z]{0,3}\s*\d{1,4}\s*[A-Z]$"
     TRIP_ID_PATTERN = r"^(TRIP)[0-9]{1,6}$"
     USER_ID_PATTERN = r"^(USER)[0-9]{1,6}$"
+
+    # For PDPA
+    # Regex for Singapore NRIC
+    NRIC_PATTERN = r"\b[STFGM]\d{7}[A-Z]\b"
+    # Regex for email
+    EMAIL_PATTERN = r"\b[\w.+-]+@[\w-]+\.[\w.-]+\b"
+    # Rgex for phone number
+    PHONE_NUMBER = r"(?:\+?65[\s-]?)?\b[689]\d{3}[\s-]?\d{4}\b"
     
     #Sets minimum and maximum require characters for report
     REPORT_MIN_CHARACTERS = 10
@@ -100,6 +107,12 @@ class InputValidator:
         return None
     
     # Remove control characters and normalise line endings.
+    # Removes idiot's personal information such as NRIC, Email and Phone Number with placeholders
+    # Returns cleaned output for AI_manager
     def sanitize_report_details(self, text: str) -> str:
         text = text.replace("\r\n", "\n").replace("\r", "\n")
-        return re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", text).strip()
+        text = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", text).strip()
+        text = re.sub(self.NRIC_PATTERN, "[NRIC]", text, flags=re.IGNORECASE)
+        text = re.sub(self.EMAIL_PATTERN, "[EMAIL]", text)
+        text = re.sub(self.PHONE_NUMBER, "[PHONE]", text)
+        return text

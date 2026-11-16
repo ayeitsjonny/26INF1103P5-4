@@ -8,6 +8,17 @@ class IOManager:
     RETURN_OPTION = "Return to Menu Selection"
     QUIT_OPTION = "Quit Program"
 
+    #PDPA terms that user have to agree before creating report
+    CONSENT_NOTICE = (
+        "PERSONAL DATA NOTICE (PDPA)\n"
+        "We collect your user ID, the trip ID, the vehicle licence plate and your\n"
+        "incident description to assess and respond to the reported safety incident.\n"
+        "Your description is screened for direct identifiers (NRIC, phone, email)\n"
+        "before any automated analysis. Data is kept only for handling the report\n"
+        "and may be shared with the Trust & Safety team. You may edit or request\n"
+        "deletion of your own report."
+    )
+
     #User's Menu
     USER_OPTIONS = (
         "Write a report",
@@ -39,6 +50,7 @@ class IOManager:
         print("1. User Functions")
         print("2. Admin Functions")
         print("3. Quit Program")
+        print("=" * 40)
 
     #For proof of concept. There's a User menu and a Admin menu
     def get_menu_choice(self) -> str:
@@ -122,9 +134,22 @@ class IOManager:
                 return details
             print(f"Report details must be between {self._validator.REPORT_MIN_CHARACTERS} and "
                   f"{self._validator.REPORT_MAX_CHARACTERS} characters. Please try again.")
+            
+    #Shows PDPA concent before data is collected and returns false if user declines
+    def confirm_consent(self) -> bool:
+        print("=" * 50)
+        print(self.CONSENT_NOTICE)
+        print("=" * 50)
+        return self._validator.get_valid_field(
+            "Do you consent to this data being collected and processed? (y/n): ",
+            self._validator.yes_no,
+            "Please answer y or n.",
+        )
 
-    #Builds the report from user provided information
+    #Builds the report from user provided information and ensures that user agrees to the PDPA terms
     def build_report(self) -> IncidentReport:
+        if not self.confirm_consent():
+            return None
         report = IncidentReport(
             user_id=self.get_user_id(),
             trip_id=self.get_trip_id(),
@@ -219,7 +244,11 @@ class IOManager:
     def show_warning(self, message: str) -> None:
         print(f"\n[WARNING] {message}")
         self.pause()
-        
+    
+    #Warning for data retention
+    def data_retention_warning(self, message:str) -> None:
+        print(f"\n[WARNING] {message}")
+    
     #If there are any errors
     def show_error(self, message: str) -> None:
         print(f"\n[ERROR] {message}")
