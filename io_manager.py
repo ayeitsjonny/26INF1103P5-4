@@ -1,279 +1,255 @@
 from datetime import datetime
+from InputValidator import InputValidator
+from models import IncidentReport
 import pandas as pd
-import re
 
-#Regex for User,Trip,License plate
-SINGAPORE_LICENSE_PLATE_REGEX = re.compile(r"\bS[A-Z]{0,3}\s*\d{1,4}\s*[A-Z]\b", re.IGNORECASE)
-TRIP_ID_PATTERN = re.compile(r"^(TRIP)[0-9]{1,6}$", re.IGNORECASE)
-USER_ID_PATTERN = re.compile(r"^(USER)[0-9]{1,6}$", re.IGNORECASE)
+class IOManager:
+    
+    RETURN_OPTION = "Return to Menu Selection"
+    QUIT_OPTION = "Quit Program"
 
-#Sets minimum and maximum require characters for report
-REPORT_MIN_CHARACTERS = 10
-REPORT_MAX_CHARACTERS = 2000
-
-# ASSUMPTION: fixed category list. Change to match your actual taxonomy.
-VALID_CATEGORIES = {"unsafe_driving", "verbal_harassment", "long_hauling", "physical_assault", "sexual_harassment", "stalking", "misc"}
-
-SEVERITY_MIN, SEVERITY_MAX = 0, 2
-
-YES_NO = {"y": True, "yes": True, "n": False, "no": False}
-
-#Banner before the user starts the report
-def print_banner():
-    print("=" * 40)
-    print("       AI-ASSISTED SAFETY REPORTING")
-    print("=" * 40)
-    print("1. Write a report")
-    print("2. Display a report from Trip ID")
-    print("3. Display reports table")
-    print("4. Quit Program")
-
-#Function to get options
-def get_options():
-
-    valid_option = False
-    while valid_option == False:
-        try: user_option = int(input("Select Option: "))
-        except: return None
-
-        if user_option > 4 or user_option < 1:
-            print("Please select a valid option")
-            continue
-        else:
-            valid_option = True
-    return user_option
-
-#Ensures input field is not empty else reject user input
-def non_empty_input(prompt):
-    while True:
-        user_input = input(prompt).strip()
-        if user_input:
-            return user_input
-        print("Input cannot be empty. Please try again.")
-
-#Prompt until the input passes the supplied validation function
-def get_valid_field(prompt, validator, error_msg):
-    while True:
-        raw = non_empty_input(prompt)
-        result = validator(raw)
-        if result is not None:
-            return result
-        print(error_msg)
-
-
-# --- validators ---
-#Ensure that the tripid is in the required format
-def validate_license_plate(license):
-    match = SINGAPORE_LICENSE_PLATE_REGEX.match(license)
-    return match.group() if match else None
-
-def validate_trip_id(trip_id):
-    match = TRIP_ID_PATTERN.match(trip_id)
-    return match.group() if match else None
-
-#Ensures that userid is in the required format
-def validate_user_id(user_id):
-    match = USER_ID_PATTERN.match(user_id)
-    return match.group() if match else None
-
-#Check that the report is within the allowed length before saving it
-def validate_report_details(report_details):
-    if REPORT_MIN_CHARACTERS <= len(report_details) <= REPORT_MAX_CHARACTERS:
-        return report_details
-    return None
-
-
-def validate_category(category):
-    normalized = category.strip().lower()
-    return normalized if normalized in VALID_CATEGORIES else None
-
-
-def validate_severity(severity):
-    try:
-        value = int(severity)
-    except ValueError:
-        return None
-    return value if SEVERITY_MIN <= value <= SEVERITY_MAX else None
-
-
-def validate_confidence(confidence):
-    try:
-        value = float(confidence)
-    except ValueError:
-        return None
-    return value if 0.0 <= value <= 1.0 else None
-
-
-def validate_yes_no(answer):
-    """Map yes/no answers to booleans so the app can store a simple flag."""
-    return YES_NO.get(answer.strip().lower())
-
-
-# --- field getters ---
-# Collect and validate the license plate number
-def get_license_plate():
-    return get_valid_field(
-        "Please enter the incident car license plate in (SXX1234A): ",
-        validate_license_plate,
-        "No license plate found. Please enter the license in (SXX1234A): "
+    #PDPA terms that user have to agree before creating report
+    CONSENT_NOTICE = (
+        "PERSONAL DATA NOTICE (PDPA)\n"
+        "We collect your user ID, the trip ID, the vehicle licence plate and your\n"
+        "incident description to assess and respond to the reported safety incident.\n"
+        "Your description is screened for direct identifiers (NRIC, phone, email)\n"
+        "before any automated analysis. Data is kept only for handling the report\n"
+        "and may be shared with the Trust & Safety team. You may edit or request\n"
+        "deletion of your own report."
     )
 
-#Collect and validate the reporting user's ID
-def get_user_id():
-    return get_valid_field(
-        "Please input your user ID (user123): ",
-        validate_user_id,
-        "Invalid user ID. It must start with 'user' followed by 1-6 letters or numbers.",
+    #User's Menu
+    USER_OPTIONS = (
+        "Write a report",
+        "Edit my report",
+        RETURN_OPTION,
+        QUIT_OPTION,
     )
     
-#Collect and validate the trip identifier tied to the incident
-def get_trip_id():
-    return get_valid_field(
-        "Please input your Trip ID (trip123): ",
-        validate_trip_id,
-        "Invalid trip ID. It must start with 'trip' followed by 1-6 letters or numbers.",
+    #Admin's Menu
+    ADMIN_OPTIONS = (
+        "Display reports from Trip ID",
+        "Display reports table",
+        "Filter reports by severity or category",
+        "Delete a report",
+        RETURN_OPTION,
+        QUIT_OPTION,
     )
+    
+    def __init__(self):
+        self._validator: InputValidator = InputValidator()
+        
+    #Displays the menu
+    def show_menu(self, storage_name: str) -> None:
+        print("=" * 40)
+        print("       AI-ASSISTED SAFETY REPORTING")
+        print(f"       Storage: {storage_name}")
+        print("=" * 40)
+        print("Select Menu:")
+        print("1. User Functions")
+        print("2. Admin Functions")
+        print("3. Quit Program")
+        print("=" * 40)
 
-
-def get_report_details():
-    """Prompt the user for the incident narrative and sanitize it before validation."""
-    while True:
-        print("Please tell us what happened during the incident.")
-        print("Press Enter on an empty line when you have finished.")
-
-        report_lines = []
+    #For proof of concept. There's a User menu and a Admin menu
+    def get_menu_choice(self) -> str:
         while True:
-            line = input()
-            if not line:
-                break
-            report_lines.append(line)
+            raw = input("Select Menu: ").strip()
+            if raw == "1":
+                return "user"
+            if raw == "2":
+                return "admin"
+            if raw == "3":
+                return "quit"
+            print("Please select 1, 2, or 3.")
 
-        report_details = sanitize_report_details("\n".join(report_lines))
-        if validate_report_details(report_details) is not None:
-            return report_details
+    #Show the menu they are "login" as
+    def show_menu_options(self, menu_type: str) -> None:
+        options = self.USER_OPTIONS if menu_type == "user" else self.ADMIN_OPTIONS
+        title = "User Functions" if menu_type == "user" else "Admin Functions"
+        print(f"\n{title}:")
+        for number, label in enumerate(options, start=1):
+            print(f"{number}. {label}")
 
-        print(f"Report details must be between {REPORT_MIN_CHARACTERS} and {REPORT_MAX_CHARACTERS} characters. Please try again.")
+    #Selection from menu
+    def get_menu_option(self, menu_type: str) -> int:
+        options = self.USER_OPTIONS if menu_type == "user" else self.ADMIN_OPTIONS
+        while True:
+            raw = input("Select Option: ").strip()
+            if raw.isdigit() and 1 <= int(raw) <= len(options):
+                return int(raw)
+            print(f"Please select a valid option (1-{len(options)}).")
 
+    def pause(self) -> None:
+        input("Press enter to continue")
 
-def get_category():
-    options = ", ".join(sorted(VALID_CATEGORIES))
-    return get_valid_field(
-        f"Please enter the category ({options}): ",
-        validate_category,
-        f"Invalid category. Choose one of: {options}.",
-    )
+    # ---------- Field getters ----------
+    #Gets License Plate from user
+    def get_license_plate(self) -> str:
+        return self._validator.get_valid_field(
+            "Please enter the incident car license plate in (SXX1234A): ",
+            self._validator.license_plate,
+            "No license plate found. Please enter the license in (SXX1234A): ",
+        )
 
+    #Get User's userID
+    def get_user_id(self) -> str:
+        return self._validator.get_valid_field(
+            "Please input your user ID (user123): ",
+            self._validator.user_id,
+            "Invalid user ID. It must start with 'user' followed by 1-6 numbers.",
+        )
 
-def get_severity():
-    return get_valid_field(
-        f"Please enter the severity ({SEVERITY_MIN}-{SEVERITY_MAX}): ",
-        validate_severity,
-        f"Severity must be an integer between {SEVERITY_MIN} and {SEVERITY_MAX}.",
-    )
+    #Gets tripID
+    def get_trip_id(self) -> str:
+        return self._validator.get_valid_field(
+            "Please input your Trip ID (trip123): ",
+            self._validator.trip_id,
+            "Invalid trip ID. It must start with 'trip' followed by 1-6 numbers.",
+        )
 
+    #Gets report ID
+    def get_report_id(self) -> int:
+        return self._validator.get_valid_field(
+            "Please enter the report ID: ",
+            self._validator.report_id,
+            "Report ID must be a positive whole number.",
+        )
 
-def get_confidence():
-    return get_valid_field(
-        "Please enter the confidence (0.0-1.0): ",
-        validate_confidence,
-        "Confidence must be a number between 0.0 and 1.0.",
-    )
+    #Gets report details from users
+    def get_report_details(self) -> str:
+        while True:
+            print("Please tell us what happened during the incident.")
+            print("Press Enter on an empty line when you have finished.")
+            lines = []
+            while True:
+                line = input()
+                if not line:
+                    break
+                lines.append(line)
 
+            details = self._validator.sanitize_report_details("\n".join(lines))
+            if self._validator.report_details(details) is not None:
+                return details
+            print(f"Report details must be between {self._validator.REPORT_MIN_CHARACTERS} and "
+                  f"{self._validator.REPORT_MAX_CHARACTERS} characters. Please try again.")
+            
+    #Shows PDPA concent before data is collected and returns false if user declines
+    def confirm_consent(self) -> bool:
+        print("=" * 50)
+        print(self.CONSENT_NOTICE)
+        print("=" * 50)
+        return self._validator.get_valid_field(
+            "Do you consent to this data being collected and processed? (y/n): ",
+            self._validator.yes_no,
+            "Please answer y or n.",
+        )
 
-def get_yes_no_field(prompt):
-    return get_valid_field(
-        prompt,
-        validate_yes_no,
-        "Please answer y or n.",
-    )
+    #Builds the report from user provided information and ensures that user agrees to the PDPA terms
+    def build_report(self) -> IncidentReport:
+        if not self.confirm_consent():
+            return None
+        report = IncidentReport(
+            user_id=self.get_user_id(),
+            trip_id=self.get_trip_id(),
+            license_plate=self.get_license_plate(),
+            report_details=self.get_report_details(),
+        )
+        print("\nReport captured. Analysing...")
+        return report
 
+    #Filters report by severity or category
+    def get_filter_choice(self) -> tuple:
+        choice = self._validator.get_valid_field(
+            "Filter by (1) severity or (2) category: ",
+            self._validator.filter_choice,
+            "Please enter 1 or 2.",
+        )
+        if choice == "1":
+            severity = self._validator.get_valid_field(
+                "Severity (0-2): ", self._validator.severity, "Severity must be 0, 1 or 2.")
+            return "severity", severity
+        options = ", ".join(self._validator.VALID_CATEGORIES)
+        category = self._validator.get_valid_field(
+            f"Category ({options}): ", self._validator.category, f"Choose one of: {options}.")
+        return "category", category
 
-#Function to build the report and return a dict for ai manager
-def build_report():
-    user_id = get_user_id()
-    trip_id = get_trip_id()
-    license_plate = get_license_plate()
-    report_details = get_report_details()
+    #Confirmation to delete report
+    def confirm(self, prompt: str) -> bool:
+        return self._validator.get_valid_field(f"{prompt} (y/n): ", self._validator.yes_no, "Please answer y or n.")
+
+    # ---------- Output ----------
+    #Displays a report
+    def display_record(self, report: IncidentReport) -> None:
+        immediate = "YES" if report.immediate_attention_required else "no"
+        second_opinion = "YES" if report.second_opinion_required else "no"
+        print("=" * 50)
+        print(f"Incident Report #{report.report_id}")
+        print(f"Submitted: {report.timestamp:%Y-%m-%d %H:%M:%S}")
+        print(f"User ID: {report.user_id}")
+        print(f"Trip ID: {report.trip_id}")
+        print(f"License Plate: {report.license_plate}")
+        print(f"Report Details: {report.report_details}")
+        print(f"Category: {report.category}   Severity: {report.severity}   Confidence: {report.confidence}")
+        print(f"Immediate attention: {immediate}   Second opinion: {second_opinion}")
+        print("=" * 50)
+
+    def display_records(self, reports: list[IncidentReport]) -> None:
+        if not reports:
+            self.show_result("No reports found.")
+            return
+        for report in reports:
+            self.display_record(report)
+            self.pause()
+
+    #Display summary of all reports
+    def report_summary(self, reports: list[IncidentReport], title: str = "Incident Report Summary") -> None:
+        if not reports:
+            print(f"\n{title} - 0 reports")
+            print("No reports to display.")
+            return
+
+        columns = ["report_id", "user_id", "trip_id", "license_plate", "category", "severity",
+                   "confidence", "second_opinion_required", "immediate_attention_required", "timestamp"]
+        summary = pd.DataFrame([r.to_dict() for r in reports])[columns]
+
+        summary = summary.sort_values(
+            by=["immediate_attention_required", "severity", "timestamp"],
+            ascending=[False, False, True],
+        )
+
+        print(f"\n{title} - {len(reports)} report(s)")
+        print(summary.to_string(index=False))
+        print(f"\nImmediate Attention Needed - {int(summary['immediate_attention_required'].sum())}")
+        print(f"Manual Review - {int(summary['second_opinion_required'].sum())}\n")
+
     
-    record = {
-        "user_id": user_id,
-        "trip_id": trip_id,
-        "report_details": report_details,
-        "license_plate": license_plate,
-        "timestamp": datetime.now().isoformat(timespec="seconds"),
-    }
-
-    print(record)
-    print("\n Report captured.")
-    return record
-
-#Remove control characters such as \n and normalize line endings before validation.
-def sanitize_report_details(text):
-    text = text.replace("\r\n", "\n").replace("\r", "\n")
-    return re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", text).strip()
-
-#Print a table of incident records, handling both a single dict and a list.
-def report_summary(records):
-    if isinstance(records, dict):
-        records = [records]
-
-    if not records:
-        print("\nIncident Report Summary — 0 reports")
-        print("No reports to display.")
-        return
-
-    summary_fields = [
-        "user_id", "trip_id", "license_plate", "category", "severity",
-        "confidence", "second_opinion_required",
-        "immediate_attention_required", "timestamp",
-    ]
+    def show_saved(self, report: IncidentReport, route: str, action: str = "submitted") -> None:
+        print(f"\nReport #{report.report_id} {action} successfully.")
+        print(f"AI classification: {report.category} (severity {report.severity}, confidence {report.confidence})")
+        print(f"Routed to: {route}")
+        self.pause()
     
-    summary_records = [
-        {field: record.get(field, "unknown") for field in summary_fields}
-        for record in records
-    ]
-    summary = pd.DataFrame(summary_records)
+    #Shows any information
+    def show_info(self, message: str) -> None:
+        print(message)
 
-    summary["timestamp"] = pd.to_datetime(summary["timestamp"]) 
+    #Shows any printed message
+    def show_result(self, message: str) -> None:
+        print(f"\n{message}")
+        self.pause()
 
-    #sorting the table to put the oldest emergency high severity case first
-    sorted_summary = summary.sort_values(
-        by=["immediate_attention_required", "severity", "timestamp"],
-        ascending=[False, False, True]
-    )
-
-    print(f"\nIncident Report Summary — {len(records)} report(s)")
-    print(sorted_summary.to_string(index=False))
-    print(f"\nImmediate Attention Needed — {(sorted_summary['immediate_attention_required'] == "True").sum()}")
-    print(f"Manual Review — {(sorted_summary['second_opinion_required'] == "True").sum()}\n")
-
-#Print a single incident record in a readable user-facing format
-def display_record(record):
-    print("=" * 50)
-    print("\nIncident Report Record")
-    print(f"User ID: {record['user_id']}")
-    print(f"Trip ID: {record['trip_id']}")
-    print(f"Report Details: {record['report_details']}")
-    print(f"License Plate: {record['license_plate']}")
-    print("=" * 50)
-
-# Functions containing error messages
-def misc_outputs(trigger):
-    match trigger:
-        case "LM_Invalid":
-            print("Error raised in Logic Manager - Returning to menu")
-        case "Ent_Success":
-            print("Report entry submitted successfully.")
-        case "AM_Null":
-            print("No analysis received -  Returning to menu")
-        case "DM_Savefail":
-            print("Error while saving entry - Returning to menu")
-    return
-
-if __name__ == "__main__":
-    try:
-        report = build_report()
-        display_record(report)
-        report_summary(report)
-    except EOFError:
-        print("\nInput ended unexpectedly. Report cancelled.")
+    #If there are any warnings
+    def show_warning(self, message: str) -> None:
+        print(f"\n[WARNING] {message}")
+        self.pause()
+    
+    #Warning for data retention
+    def data_retention_warning(self, message:str) -> None:
+        print(f"\n[WARNING] {message}")
+    
+    #If there are any errors
+    def show_error(self, message: str) -> None:
+        print(f"\n[ERROR] {message}")
+        input("Press enter to return to the menu")

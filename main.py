@@ -97,6 +97,57 @@ def main():
             case _:
                 continue
 
+    # def __init__(self):
+    #     # [MOVED] .env loading and logging setup used to happen inside ai_manager.py on import.
+    #     load_dotenv(BASE_DIR / ".env", override=True)
+    #     LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+    #     logging.basicConfig(filename=LOG_FILE, level=logging.INFO,
+    #                         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+
+    #     self._data: DataManager = StorageFactory().create_data_manager()   # SQLite, or CSV fallback
+    #     self._io: IOManager = IOManager()
+    #     self._ai: AIManager = AIManager(GeminiProvider())   # raises AIConfigurationError without a key
+    #     self._logic: LogicManager = LogicManager(self._data)
+
+    #     # [NEW] Menu number -> method to run. Replaces the match/case in Part 1.
+    #     self._actions: dict = {
+    #         ("user", 1): self._submit_report,
+    #         ("user", 2): self._edit_report,
+    #         ("admin", 1): self._show_reports_for_trip,
+    #         ("admin", 2): self._show_all_reports,
+    #         ("admin", 3): self._filter_reports,
+    #         ("admin", 4): self._delete_report,
+# ---------- Main loop ----------
+    # def run(self) -> None:
+    #     while True:
+    #         self._show_storage_messages()
+    #         self._io.show_menu(self._data.storage_name)
+    #         menu_type = self._io.get_menu_choice()
+    #         if menu_type == "quit":
+    #             print("Quitting the program...")
+    #             return
+    #         self._io.show_menu_options(menu_type)
+    #         option = self._io.get_menu_option(menu_type)
+    #         menu_options = (
+    #             IOManager.USER_OPTIONS if menu_type == "user" else IOManager.ADMIN_OPTIONS
+    #         )
+    #         selected_option = menu_options[option - 1]
+    #         if selected_option == IOManager.RETURN_OPTION:
+    #             continue
+    #         if selected_option == IOManager.QUIT_OPTION:
+    #             print("Quitting the program...")
+    #             return
+    #         try:
+    #             self._actions[(menu_type, option)]()
+    #         except StorageError as e:
+    #             # [NEW] Storage problems no longer crash the app (Part 1 used a bare except).
+    #             logging.error(f"Storage error: {e}")
+    #             self._io.show_error(f"Could not access stored reports ({e})")
+
+    # def _show_storage_messages(self) -> None:
+    #     message = self._data.pop_status_message()
+    #     if message:
+    #         self._io.show_warning(message)
 
 if __name__ == "__main__":
     main()
