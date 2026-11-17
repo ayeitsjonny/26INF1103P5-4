@@ -1,11 +1,12 @@
-# [NEW] models.py
-# In Part 1 every manager passed around plain dicts, and each manager had to
-# guess the keys and the types (e.g. "True" string vs True bool).
-# IncidentReport is ONE shared class that every manager uses, so the
-# fields and their types are defined in exactly one place.
+# models.py
 
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
+# Singapore Standard Time
+SGT = timezone(timedelta(hours=8))
+
+def sgt_now() -> datetime:
+    return datetime.now(SGT).replace(tzinfo=None, microsecond=0)
 
 class IncidentReport:
 
@@ -43,10 +44,11 @@ class IncidentReport:
         self.__report_details: str = report_details
         if timestamp is None:
             # The database and the CSV both store whole seconds only.
-            timestamp = datetime.now().replace(microsecond=0)
+            # SGT so the stamp is Singapore time even when the container runs on UTC.
+            timestamp = sgt_now()
         self.__timestamp: datetime = timestamp
 
-        # [NEW] report_id: unique ID per report. Part 1 used trip_id as the key,
+        # report_id: unique ID per report. Part 1 used trip_id as the key,
         # which cannot work now that a trip may have 2 reports.
         # It stays None until the Data Manager saves the report.
         self.__report_id: int | None = report_id
@@ -95,7 +97,7 @@ class IncidentReport:
 
     # ---------- Behaviour ----------
     def revise_details(self, new_details: str) -> None:
-        # [NEW] CRUD Update: the passenger corrects their description.
+        # CRUD Update: the passenger corrects their description.
         # ENCAPSULATION: there is no report_details setter, so this method is the
         # ONLY way to change it. It also wipes the old AI result and flags,
         # because they described the OLD text: the report must go through the
@@ -111,7 +113,7 @@ class IncidentReport:
         self.immediate_attention_required = False
 
     def apply_ai_result(self, ai_result: dict) -> None:
-        # [NEW] Copies the validated AI output onto this report.
+        # Copies the validated AI output onto this report.
         # Replaces Part 1's `report | result` dict merge in main.py.
         self.category = ai_result["category"]
         self.contact_type = ai_result["contact_type"]
