@@ -146,8 +146,9 @@ class IOManager:
             "Please answer y or n.",
         )
 
-    #Builds the report from user provided information and ensures that user agrees to the PDPA terms
-    def build_report(self) -> IncidentReport:
+    #Builds the report from user provided information and ensures that user 
+    # agrees to the PDPA terms
+    def build_report(self) -> IncidentReport | None:
         if not self.confirm_consent():
             return None
         report = IncidentReport(

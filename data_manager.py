@@ -3,14 +3,18 @@ import os
 import logging
 import sqlite3
 from abc import ABC, abstractmethod
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
-from models import IncidentReport
+from models import IncidentReport, sgt_now
 
 #Paths are now relative to the current file's location, not to wherever the script is run from. 
 DEFAULT_CSV_FILE = Path(__file__).parent / "logs_reports" / "reportcases.csv"
 DEFAULT_DB_FILE = Path(__file__).parent / "logs_reports" / "reportcases.db"
 
+#Data retention: reports older than this many days are purged at
+# startup (PDPA retention limitation — personal data is not kept longer than
+# needed). Change this one value to set the retention period.
+RETENTION_DAYS = 180
 
 #When a passenger submits a report, the new description AND the new AI results are written.
 #The IDs and timestamp are never changed.
@@ -113,7 +117,7 @@ class CSVRepository(RecordRepository):
             rows = list(reader)
             header = reader.fieldnames
         if header is not None and tuple(header) != IncidentReport.FIELDNAMES:
-            backup = self._csv_path.with_name(f"{self._csv_path.stem}.corrupt-{datetime.now():%Y%m%d%H%M%S}.csv")
+            backup = self._csv_path.with_name(f"{self._csv_path.stem}.corrupt-{sgt_now():%Y%m%d%H%M%S}.csv")
             os.replace(self._csv_path, backup)
             logging.warning(f"CSV had an unexpected header. Backed up to '{backup.name}', started a new file.")
             self._write_rows([])  
@@ -328,6 +332,21 @@ class DataManager:
         except StorageUnavailableError as e:
             self._switch_to_fallback(e)
             return self._active.delete(report_id)
+
+    # Data retention: delete every report older than `days` days.
+    # Called once at startup. Returns the number of reports removed. Uses the
+    # SGT clock so the cut-off matches the timestamps stored on the reports.
+    def purge_old_reports(self, days: int = RETENTION_DAYS) -> int:
+        cutoff = sgt_now() - timedelta(days=days)
+        removed = 0
+        for report in self.get_all_reports():
+            if report.timestamp < cutoff:
+                if self.delete_report(report.report_id):
+                    removed += 1
+        if removed:
+            logging.info(f"Retention purge: removed {removed} report(s) older than {days} days.")
+        return removed
+
     #searching / filtering 
     def get_report(self, report_id: int) -> IncidentReport | None:
         for report in self.get_all_reports():

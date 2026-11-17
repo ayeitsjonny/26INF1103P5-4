@@ -1,22 +1,4 @@
 # ai_manager.py — AI Manager (Part 2)
-#
-# [CHANGED] Overall structure:
-#   Part 1: module-level functions (build_prompt, call_api, parse_response,
-#           validate_response, process) + a client created on import.
-#   Part 2:
-#     AIProvider (interface)           -> "something that can answer a prompt"
-#        ├── GeminiProvider            -> real Gemini API (used by the app)
-#        └── MockProvider              -> canned answers, used ONLY by the tests
-#     PromptBuilder                    -> builds the prompt   (same text as Part 1)
-#     ResponseValidator                -> parse + validate    (same rules as Part 1)
-#     AIManager                        -> retry loop that ties them together
-#
-# [KEPT] The prompt text, the valid value sets, the sexual_harassment
-#        severity override, the timeout and the retry/back-off timings.
-# [REMOVED] Duplicated setup block (load_dotenv / MODEL / RuntimeError were
-#           copy-pasted twice in Part 1) and duplicated entries in VALID_CATEGORIES.
-# [MOVED] load_dotenv() and logging.basicConfig() now live in main.py, so
-#         importing this file (e.g. in tests) has no side effects.
 
 import json
 import logging
@@ -47,15 +29,23 @@ VALID_CATEGORIES = {
 VALID_CONTACT_TYPES = {"none", "verbal", "physical"}
 VALID_STATED_EFFECTS = {"none", "distress", "fear_for_safety"}
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+logging.basicConfig(
+    filename=os.path.join(BASE_DIR, "logs_reports/ai_manager.log"),
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    encoding="utf-8"
+)
 
 class AIConfigurationError(Exception):
-    # [NEW] Replaces Part 1's RuntimeError on import when GEMINI_API_KEY is missing.
+    # Replaces Part 1's RuntimeError on import when GEMINI_API_KEY is missing.
     # main.py catches it and shows a friendly message instead of a traceback.
     pass
 
 
 # ======================================================================
-# [NEW] AIProvider — INTERFACE (an ABC with only abstract methods:
+# AIProvider — INTERFACE (an ABC with only abstract methods:
 # "must be able to generate an answer", not an is-a relationship)
 # ======================================================================
 class AIProvider(ABC):
@@ -67,14 +57,14 @@ class AIProvider(ABC):
 
 
 class GeminiProvider(AIProvider):
-    # [CHANGED] Part 1 call_api() + the client setup, moved into a class.
+    # Part 1 call_api() + the client setup, moved into a class.
 
     def __init__(self, api_key: str | None = None, model: str = MODEL,
                  timeout_ms: int = REQUEST_TIMEOUT_MS):
         # strip() and quote-stripping guard against stray spaces/quotes in .env
         key = (api_key or os.environ.get("GEMINI_API_KEY") or "").strip().strip('"').strip("'")
         if not key:
-            # [KEPT] Hard stop without a key, so records are never silently skipped.
+            # Hard stop without a key, so records are never silently skipped.
             raise AIConfigurationError("GEMINI_API_KEY is not set. Add it to your .env file.")
 
         # Imported here so the tests (which use MockProvider) don't need the Gemini package.
@@ -88,6 +78,8 @@ class GeminiProvider(AIProvider):
         self._timeout_ms: int = timeout_ms
 
     def generate(self, prompt: str) -> str | None:
+        started = time.monotonic()
+        logging.info("Gemini request started (model=%s)", self._model)
         try:
             response = self._client.models.generate_content(
                 model=self._model,
@@ -96,7 +88,11 @@ class GeminiProvider(AIProvider):
                     temperature=0,  # deterministic output
                     response_mime_type="application/json",
                     http_options=self._types.HttpOptions(timeout=self._timeout_ms),
-                ),
+                 ),
+            )
+            logging.info(
+                "Gemini request completed in %.1f seconds",
+                time.monotonic() - started,
             )
             return response.text
         except self._errors.APIError as e:
@@ -112,7 +108,7 @@ class GeminiProvider(AIProvider):
 
 
 class MockProvider(AIProvider):
-    # [CHANGED] Part 1 call_api_mock(). Now a proper provider used by the tests,
+    # Part 1 call_api_mock(). Now a proper provider used by the tests,
     # so tests run without a live API (brief section 8).
     # It is NOT used by the running app (brief section 7: no hard-coded AI answers).
 
@@ -130,7 +126,7 @@ class MockProvider(AIProvider):
 
 
 # ======================================================================
-# [CHANGED] PromptBuilder — Part 1 build_prompt(), text unchanged.
+# PromptBuilder — Part 1 build_prompt()
 # ======================================================================
 class PromptBuilder:
 
@@ -185,7 +181,7 @@ If the text is too vague to classify confidently, still return your best guess f
 
 
 # ======================================================================
-# [CHANGED] ResponseValidator — Part 1 parse_response() + validate_response(),
+# ResponseValidator — Part 1 parse_response() + validate_response(),
 # same checks, now methods of one class.
 # ======================================================================
 class ResponseValidator:
@@ -240,7 +236,7 @@ class ResponseValidator:
             logging.error(f"AI response has invalid severity: {severity}")
             return None
 
-        # [KEPT] POLICY RULE: sexual_harassment is always severity 2.
+        # POLICY RULE: sexual_harassment is always severity 2.
         if category == "sexual_harassment" and severity != 2:
             logging.info(f"Overriding severity for sexual_harassment record from {severity} to 2")
             severity = 2
@@ -291,16 +287,37 @@ class AIManager:
         self._sleep = sleep  # a function; tests pass one that does nothing, so they don't actually wait
 
     def process(self, report: IncidentReport) -> dict | None:
-        # [KEPT] Same behaviour as Part 1 process(): build -> call -> parse -> validate,
-        # retrying with a growing wait (4s, 8s, 12s). Returns None if every attempt fails.
+        logging.info("Starting AI processing for trip %s", report.trip_id)
+
         prompt = self._prompt_builder.build(report)
+
         for attempt in range(1, self._max_retries + 2):
-            validated = self._validator.parse_and_validate(self._provider.generate(prompt))
+
+            logging.info(
+                "Starting AI attempt %s of %s",
+                attempt,
+                self._max_retries + 1
+            )
+
+            raw_response = self._provider.generate(prompt)
+
+            logging.info("AI response received. Validating response...")
+
+            validated = self._validator.parse_and_validate(raw_response)
+
             if validated is not None:
+                logging.info("AI processing successful for trip %s", report.trip_id)
                 return validated
+
+            logging.warning("AI attempt %s failed validation or generation", attempt)
+
             if attempt <= self._max_retries:
-                logging.info(f"Retrying AI call for report (attempt {attempt + 1})")
+                logging.info("Waiting %s seconds before retry", self._retry_delay * attempt)
                 self._sleep(self._retry_delay * attempt)
 
-        logging.error(f"AI processing failed after {self._max_retries + 1} attempt(s) for trip {report.trip_id}")
+        logging.error(
+            "AI processing failed after %s attempts for trip %s",
+            self._max_retries + 1,
+            report.trip_id
+        )
         return None
