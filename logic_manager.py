@@ -103,9 +103,19 @@ class LogicManager:
 
         return "Standard triage queue (normal priority)"
 
+        # Initialize both flags to false
+        emergency_escalation = False    # boolean value to indicate whether emergency escalation is required
+        second_opinion = False          # boolean value to indicate whether second opinion is required
 
+        if severity >= 2 and category in emergency_categories and confidence >= 0.5:
+            emergency_escalation = True # boolean
 
+        elif confidence < 0.5:
+            second_opinion = True # boolean value to indicate whether second opinion is required
 
+        assess_object.update({
+        "second_opinion_required" : second_opinion, 
+        "immediate_attention_required" : emergency_escalation})
 
 
 
