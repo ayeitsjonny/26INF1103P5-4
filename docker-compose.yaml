@@ -5,8 +5,6 @@ services:
       dockerfile: ./Dockerfile # relative path from context to dir containing dockerfile
     stdin_open: true # docker run -i
     tty: true        # docker run -t
-    # logs_reports holds the SQLite database (reportcases.db), the CSV
-    # fallback and the logs, so all data is kept on your machine between runs.
     volumes:
      - ./logs_reports:/app/logs_reports
     env_file:
