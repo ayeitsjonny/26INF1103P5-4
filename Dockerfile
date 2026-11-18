@@ -12,9 +12,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy all .py scripts into the image
 COPY ./*.py /app/
 
-# Copy the automated test suite so it can run inside the container:
-#   docker build -t reportapp .
-#   docker run --rm reportapp python3 -m unittest discover -s tests -p "test_*.py" -v
+# Copy all test suit so it can be run in docker
 COPY ./tests /app/tests
 
 CMD ["python3", "main.py"]

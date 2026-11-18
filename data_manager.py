@@ -133,11 +133,8 @@ class CSVRepository(RecordRepository):
 
     def _to_row(self, report: IncidentReport) -> dict:
         #CSV only stores strings: None -> "", datetime -> "2026-11-09T12:00:00".
-        # Use to_dict() so keys are the plain FIELDNAMES; report.__dict__ would
-        # give name-mangled keys (e.g. _IncidentReport__user_id) for the private
-        # attributes, which do not match the CSV header.
         row = {}
-        for key, value in report.to_dict().items():
+        for key, value in report.__dict__.items():
             if value is None:
                 row[key] = ""
             elif isinstance(value, datetime):

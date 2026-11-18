@@ -82,7 +82,7 @@ class CSVRepositoryTests(unittest.TestCase):
         self.assertFalse(self.repo.delete(12345))
 
     def test_corrupt_header_is_backed_up_and_reset(self):
-        # Write a file with a wrong header; repo must back it up and start fresh.
+        # Write a file with a wrong header
         self.csv_path.write_text("totally,wrong,header\n1,2,3\n", encoding="utf-8")
         repo = CSVRepository(self.csv_path)
         self.assertEqual(repo.get_all(), [])
@@ -122,7 +122,6 @@ class DataManagerFilterTests(unittest.TestCase):
 
 class FallbackTests(unittest.TestCase):
     # Database becomes unavailable -> DataManager must switch to the CSV fallback
-    # (graceful handling of a storage/connection issue).
 
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()

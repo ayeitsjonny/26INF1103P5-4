@@ -1,6 +1,5 @@
 # Tests for the Logic Manager: escalation rules, routing, the multi-condition
-# emergency rule (uses severity + category + confidence), edit permission, and
-# the submission rules (report limit, spam flood). No live API, no real storage.
+# emergency rule (uses severity + category + confidence), edit permission, and the submission rules (report limit, spam flood)
 
 import os
 import sys

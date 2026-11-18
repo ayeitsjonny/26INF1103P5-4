@@ -1,5 +1,5 @@
-# Tests for the AI Manager: response parsing, schema validation, and the
-# retry/failure behaviour of AIManager.process() using MockProvider (no live API).
+# Tests for the AI Manager: response parsing, schema validation, and the 
+# retry/failure behaviour of AIManager.process() using MockProvider for when no live API.
 
 import os
 import sys
@@ -16,7 +16,7 @@ def make_report(details="The driver did something.") -> IncidentReport:
     return IncidentReport(
         user_id="u1",
         trip_id="t1",
-        license_plate="SGX1234A",
+        license_plate="SGX5934A",
         report_details=details,
     )
 
@@ -44,7 +44,7 @@ class ResponseValidatorTests(unittest.TestCase):
         self.assertIsNotNone(result)
         self.assertEqual(result["severity"], 2)
 
-    # --- failure / malformed cases: all must reject (return None) ---
+    # --- failure / malformed cases: all must reject ---
 
     def test_none_input_returns_none(self):
         self.assertIsNone(self.validator.parse_and_validate(None))

@@ -1,10 +1,7 @@
-# Hardcoded sample AI responses used by the tests.
+# Hardcoded sample AI responses for testing 
 # These stand in for the live Gemini API so the suite runs with NO network call
-# (brief section 8: tests must run without a live API).
 
 import json
-
-# --- Well-formed responses (valid schema) ---
 
 EMERGENCY_PHYSICAL = json.dumps({
     "category": "physical_assault",
