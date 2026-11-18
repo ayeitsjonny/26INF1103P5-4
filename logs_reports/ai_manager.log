@@ -1,0 +1,60 @@
+2026-10-14 12:45:46,344 [INFO] CSV file './logs_reports/reportcases.csv' already exists and is not empty.
+2026-10-14 12:46:39,467 [INFO] AFC is enabled with max remote calls: 10.
+2026-10-14 12:46:42,305 [INFO] HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent "HTTP/1.1 200 OK"
+2026-10-14 12:46:42,322 [INFO] CSV file './logs_reports/reportcases.csv' already exists and is not empty.
+2026-10-14 12:47:10,531 [INFO] CSV file './logs_reports/reportcases.csv' already exists and is not empty.
+2026-10-14 12:47:17,307 [INFO] CSV file './logs_reports/reportcases.csv' already exists and is not empty.
+2026-10-14 13:01:55,907 [INFO] CSV file './logs_reports/reportcases.csv' already exists and is not empty.
+2026-10-14 13:02:58,121 [INFO] AFC is enabled with max remote calls: 10.
+2026-10-14 13:03:01,022 [INFO] HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent "HTTP/1.1 200 OK"
+2026-10-14 13:03:01,048 [INFO] CSV file './logs_reports/reportcases.csv' already exists and is not empty.
+2026-10-14 13:03:03,144 [INFO] CSV file './logs_reports/reportcases.csv' already exists and is not empty.
+2026-10-14 21:06:01,620 [INFO] CSV file './logs_reports/reportcases.csv' already exists and is not empty.
+2026-11-17 16:39:19,576 - INFO - Starting AI processing for trip trip123
+2026-11-17 16:39:19,578 - INFO - Starting AI attempt 1 of 4
+2026-11-17 16:39:19,578 - INFO - Gemini request started (model=gemini-3.5-flash-lite)
+2026-11-17 16:39:19,591 - INFO - AFC is enabled with max remote calls: 10.
+2026-11-17 16:39:20,957 - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1/models/gemini-3.5-flash-lite:generateContent "HTTP/1.1 200 OK"
+2026-11-17 16:39:20,972 - INFO - Gemini request completed in 1.4 seconds
+2026-11-17 16:39:20,975 - INFO - AI response received. Validating response...
+2026-11-17 16:39:20,975 - INFO - AI processing successful for trip trip123
+2026-11-17 16:40:31,885 - INFO - Starting AI processing for trip trip123
+2026-11-17 16:40:31,885 - INFO - Starting AI attempt 1 of 4
+2026-11-17 16:40:31,885 - INFO - Gemini request started (model=gemini-3.5-flash-lite)
+2026-11-17 16:40:31,886 - INFO - AFC is enabled with max remote calls: 10.
+2026-11-17 16:40:37,737 - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1/models/gemini-3.5-flash-lite:generateContent "HTTP/1.1 200 OK"
+2026-11-17 16:40:37,740 - INFO - Gemini request completed in 5.9 seconds
+2026-11-17 16:40:37,741 - INFO - AI response received. Validating response...
+2026-11-17 16:40:37,741 - INFO - AI processing successful for trip trip123
+2026-11-17 16:49:01,627 - INFO - Starting AI processing for trip trip123
+2026-11-17 16:49:01,628 - INFO - Starting AI attempt 1 of 4
+2026-11-17 16:49:01,628 - INFO - Gemini request started (model=gemini-3.5-flash-lite)
+2026-11-17 16:49:01,654 - INFO - AFC is enabled with max remote calls: 10.
+2026-11-17 16:49:03,097 - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1/models/gemini-3.5-flash-lite:generateContent "HTTP/1.1 200 OK"
+2026-11-17 16:49:03,113 - INFO - Gemini request completed in 1.5 seconds
+2026-11-17 16:49:03,115 - INFO - AI response received. Validating response...
+2026-11-17 16:49:03,116 - INFO - AI processing successful for trip trip123
+2026-11-18 22:01:59,412 - INFO - Starting AI processing for trip T100
+2026-11-18 22:01:59,413 - INFO - Starting AI attempt 1 of 1
+2026-11-18 22:01:59,413 - INFO - AI response received. Validating response...
+2026-11-18 22:01:59,413 - INFO - AI processing successful for trip T100
+2026-11-18 22:01:59,414 - INFO - Starting AI processing for trip T100
+2026-11-18 22:01:59,414 - INFO - Starting AI attempt 1 of 1
+2026-11-18 22:01:59,414 - INFO - AI response received. Validating response...
+2026-11-18 22:01:59,414 - INFO - AI processing successful for trip T100
+2026-11-18 22:01:59,415 - INFO - Starting AI processing for trip T100
+2026-11-18 22:01:59,415 - INFO - Starting AI attempt 1 of 1
+2026-11-18 22:01:59,415 - INFO - AI response received. Validating response...
+2026-11-18 22:01:59,415 - INFO - AI processing successful for trip T100
+2026-11-18 22:02:35,675 - INFO - Starting AI processing for trip T100
+2026-11-18 22:02:35,677 - INFO - Starting AI attempt 1 of 1
+2026-11-18 22:02:35,677 - INFO - AI response received. Validating response...
+2026-11-18 22:02:35,677 - INFO - AI processing successful for trip T100
+2026-11-18 22:02:35,678 - INFO - Starting AI processing for trip T100
+2026-11-18 22:02:35,679 - INFO - Starting AI attempt 1 of 1
+2026-11-18 22:02:35,679 - INFO - AI response received. Validating response...
+2026-11-18 22:02:35,679 - INFO - AI processing successful for trip T100
+2026-11-18 22:02:35,680 - INFO - Starting AI processing for trip T100
+2026-11-18 22:02:35,680 - INFO - Starting AI attempt 1 of 1
+2026-11-18 22:02:35,680 - INFO - AI response received. Validating response...
+2026-11-18 22:02:35,681 - INFO - AI processing successful for trip T100
