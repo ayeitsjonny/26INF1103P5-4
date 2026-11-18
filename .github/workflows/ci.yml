@@ -1,4 +1,4 @@
-name: CI
+name: ContinuousIntegration
 on:
   push:
     branches: ["**"]
