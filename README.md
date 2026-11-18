@@ -15,8 +15,9 @@
 5. [System Design](#system-design)
 6. [Data Structure and Storage Design](#data-structure-and-storage-design)
 7. [Exception Handling Matrix](#exception-handling-matrix)
-8. [Contributing: Initial Commit Guide](#contributing-initial-commit-guide)
-9. [Team](#team)
+8. [Testing and Continuous Integration](#testing-and-continuous-integration)
+9. [Contributing: Initial Commit Guide](#contributing-initial-commit-guide)
+10. [Team](#team)
 
 ---
 
@@ -224,6 +225,53 @@ Standardised comma-separated values (CSV) using UTF-8, for cross-platform text r
 | --- | --- | --- | --- | --- |
 | Missing or empty storage files | Database files deleted, moved, or freshly initialised (size == 0) | Path existence check via `os.path.exists()` and file size check | Automatically run `initialize_csv()` to recreate files with default headers | Application runs smoothly without manual file setup |
 | Missing keys or type mismatches | Incomplete dictionaries from AI, or cross-module type confusion (e.g. int vs str ID) | Safe dictionary `.get(field, "")` calls and explicit `str()` casting during evaluation | Automatically substitute missing values and force string coercion during comparisons | Database queries, updates and filters execute without crashing |
+
+---
+
+## Testing and Continuous Integration
+
+### Automated tests
+
+This project uses [Github Actions](https://github.com/ayeitsjonny/26INF1103P5-4/blob/Continuous_Integration_Test/.github/workflows/ci.yml) and python's built in "unittest" that tests the core logic of all four manages using **hardcoded sample AI responses** and a mocked AI provider, so they run **without a live API connection** and never call Google Gemini.
+
+| Test module | Manager under test | What it verifies |
+| --- | --- | --- |
+| `test_ai_manager.py` | AI Manager | Response parsing, schema validation, markdown-fenced JSON extraction, the sexual-harassment severity override, retry behaviour, and failure cases (non-JSON, broken JSON, missing keys, invalid category/severity/confidence, API returning `None`) |
+| `test_logic_manager.py` | Logic Manager | Escalation and routing, the multi-condition emergency rule (severity **and** category **and** confidence), low-confidence second-opinion flag, edit permission, and the report-limit and spam-flood submission rules |
+| `test_data_manager.py` | Data Manager | CSV CRUD roundtrip, missing-file recreation, corrupt-header backup, severity/category/trip filtering, and the database-unavailable fallback to CSV |
+| `sample_responses.py` | — | Shared hardcoded AI responses used as test fixtures (no network) |
+
+### Running the tests
+
+Locally, from the project root:
+
+```bash
+python -m unittest discover -s tests -p "test_*.py" -v
+```
+
+Inside the Docker container (the suite is copied into the image, so no live API is
+needed — a dummy key satisfies the environment variable):
+
+```bash
+docker build -t <image_name> .
+docker run --rm -e GEMINI_API_KEY=test-key-not-used <image_name> \
+  python3 -m unittest discover -s tests -p "test_*.py" -v
+```
+
+All tests pass identically on the host and inside the container.
+
+### Continuous Integration
+
+A GitHub Actions workflow at `.github/workflows/ci.yml` runs the test suite
+automatically on every push and pull request. The workflow:
+
+1. Checks out the repository and sets up Python 3.12.
+2. Installs dependencies from `requirements.txt`.
+3. Runs `python -m unittest discover -s tests -p "test_*.py" -v`.
+
+Because the tests mock the AI provider, CI uses a dummy `GEMINI_API_KEY` and makes
+**no live API calls and stores no secret**. The workflow status is visible on the
+repository's **Actions** tab.
 
 ---
 

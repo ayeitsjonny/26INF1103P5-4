@@ -13,4 +13,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy all .py scripts into the image
 COPY ./*.py /app/
 
+# Copy all test suit so it can be run in docker
+COPY ./tests /app/tests
+
 CMD ["python3", "main.py"]

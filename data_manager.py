@@ -134,7 +134,7 @@ class CSVRepository(RecordRepository):
     def _to_row(self, report: IncidentReport) -> dict:
         #CSV only stores strings: None -> "", datetime -> "2026-11-09T12:00:00".
         row = {}
-        for key, value in report.__dict__.items():
+        for key, value in report.to_dict().items():
             if value is None:
                 row[key] = ""
             elif isinstance(value, datetime):

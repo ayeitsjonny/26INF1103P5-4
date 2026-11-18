@@ -31,6 +31,10 @@ VALID_STATED_EFFECTS = {"none", "distress", "fear_for_safety"}
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
+# Ensure the log directory exists so importing this module never crashes on a
+# fresh checkout or inside a container that has not created logs_reports
+os.makedirs(os.path.join(BASE_DIR, "logs_reports"), exist_ok=True)
+
 logging.basicConfig(
     filename=os.path.join(BASE_DIR, "logs_reports/ai_manager.log"),
     level=logging.INFO,
