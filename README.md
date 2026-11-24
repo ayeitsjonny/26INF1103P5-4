@@ -4,6 +4,8 @@
 
 > INF1103 – Programming Fundamentals with DevOps · Singapore Institute of Technology · Year 1 Trimester 1 · P5 Group 4
 
+[![ContinuousIntegration](https://github.com/ayeitsjonny/26INF1103P5-4/actions/workflows/ci.yml/badge.svg)](https://github.com/ayeitsjonny/26INF1103P5-4/actions/workflows/ci.yml)
+
 ---
 
 ## Table of Contents
@@ -13,11 +15,14 @@
 3. [Installation](#installation)
 4. [Usage](#usage)
 5. [System Design](#system-design)
-6. [Data Structure and Storage Design](#data-structure-and-storage-design)
-7. [Exception Handling Matrix](#exception-handling-matrix)
-8. [Testing and Continuous Integration](#testing-and-continuous-integration)
-9. [Contributing: Initial Commit Guide](#contributing-initial-commit-guide)
-10. [Team](#team)
+6. [Object-Oriented Design](#object-oriented-design)
+7. [Business Rules](#business-rules)
+8. [Data Structure and Storage Design](#data-structure-and-storage-design)
+9. [Privacy and Data Protection (PDPA)](#privacy-and-data-protection-pdpa)
+10. [Exception Handling Matrix](#exception-handling-matrix)
+11. [Testing and Continuous Integration](#testing-and-continuous-integration)
+12. [Contributing: Initial Commit Guide](#contributing-initial-commit-guide)
+13. [Team](#team)
 
 ---
 
@@ -31,17 +36,36 @@ In Singapore, operators carry strict duty-of-care obligations to LTA-licensed dr
 
 It operates across both sides of the platform:
 
-- **Passengers** can file confidential complaints or harassment incident observations from the passenger's seat.
-- **Trust & Safety teams** get prioritised safety queues, urgent-attention flags and clear workload summaries.
+- **Passengers** (User Functions) can file and edit confidential complaints or harassment incident reports.
+- **Trust & Safety teams** (Admin Functions) get prioritised safety queues, urgent-attention flags, filters and workload summaries, and can delete reports.
+
+> **Part 2 (OOP refactor):** the Part 1 procedural scripts have been rebuilt as classes. Each manager is now an object, the report itself is an `IncidentReport` object instead of a dictionary, and storage moved from CSV-only to SQLite with an automatic CSV fallback.
 
 ## Features
 
-- Guided command-line intake of structured metadata (`user_id`, `trip_id`, `license_plate`) plus a free-text narrative
-- Input validation and sanitisation (empty input, ID formats, report length, control characters)
-- AI classification via the Google Gemini API: category, severity (0–2), confidence (0–1) and written reasoning
-- Business-rule routing into **emergency escalation**, **manual review / second opinion**, or the **default queue**
-- Flat-file CSV persistence (`reportcases.csv`) with no external database server required
+**Reporting (User Functions)**
+- PDPA consent notice before any personal data is collected; declining cancels the report
+- Guided command-line intake of `user_id`, `trip_id`, `license_plate` plus a multi-line free-text narrative
+- Input validation (ID formats, Singapore licence plate format, report length 10–2000 characters)
+- Sanitisation of the narrative: control characters stripped, and **NRIC, email and phone numbers redacted** before the text reaches the AI
+- Passengers can **edit their own report**; the new text is re-classified by the AI, so a classification never comes from a person
+
+**AI and triage**
+- AI classification via the Google Gemini API: category, contact type, stated effect, severity (0–2), confidence (0–1) and written reasoning
+- Strict response validation, with automatic retries and backoff when the AI returns something unusable
+- Business-rule routing into **emergency escalation**, **manual review / second opinion**, or the **standard queue**
+- Submission rules that stop abuse before an AI call is wasted: **max 2 reports per trip per user** and a **spam-flood limit of 5 reports per user in 7 days**
+
+**Admin (Trust & Safety)**
+- Display all reports for a Trip ID
 - Priority queue view that sorts urgent, high-severity and oldest cases to the top
+- Filter reports by severity or category
+- Delete a report (with confirmation)
+
+**Storage**
+- **SQLite** database (`reportcases.db`) as primary storage, with automatic fallback to **CSV** (`reportcases.csv`) if the database can't be opened or fails mid-run
+- Each report has its own auto-generated `report_id`, so a trip can hold more than one report
+- **Data retention:** reports older than 180 days are purged automatically at startup
 
 ---
 
@@ -54,6 +78,8 @@ A `.env` file must be placed in the project root directory, containing a valid A
 ```env
 GEMINI_API_KEY=your_api_key_here
 ```
+
+Python dependencies (installed automatically by Docker) are listed in `requirements.txt`: `pandas`, `python-dotenv`, `google-genai`.
 
 ### Manual Docker setup guide
 
@@ -69,6 +95,8 @@ GEMINI_API_KEY=your_api_key_here
    docker run --rm -it --env-file .env -v ./logs_reports:/app/logs_reports <image_name>
    ```
 
+   The `logs_reports` volume keeps the database, CSV and log files on your machine after the container exits.
+
 ### Less manual Docker setup guide
 
 1. Run the following to automatically build the image and run the container:
@@ -81,24 +109,41 @@ GEMINI_API_KEY=your_api_key_here
 
 ## Usage
 
-The program provides a command-line interface managed by `io_manager.py`:
+The program starts at a top-level menu that also shows which storage backend is active:
 
 ```text
 ========================================
-        AI-ASSISTED SAFETY REPORTING
+       AI-ASSISTED SAFETY REPORTING
+       Storage: SQLite
 ========================================
-1. Write a report
-2. Display a report from Trip ID
-3. Display reports table
-4. Quit Program
+Select Menu:
+1. User Functions
+2. Admin Functions
+3. Quit Program
+========================================
 ```
+
+> The User/Admin split is a proof of concept; there is no login.
+
+### User Functions
 
 | Option | What it does |
 | --- | --- |
-| **1. Write a report** | Prompts for user ID, trip ID and the incident car's licence plate, then a free-text description of what happened (finish with Enter on an empty line). The report is classified, routed and saved. |
-| **2. Display a report from Trip ID** | Looks up and displays the stored report for a given trip. |
-| **3. Display reports table** | Shows the priority queue, plus counts of cases needing immediate attention or manual review. |
+| **1. Write a report** | Shows the PDPA notice and asks for consent, then prompts for user ID, trip ID and licence plate, then a free-text description (finish with Enter on an empty line). Submission rules are checked, the report is classified by the AI, routed and saved. The new report ID and its queue are shown. |
+| **2. Edit my report** | Asks for a report ID and your user ID. If you own the report, you enter a new description, which is re-classified and re-routed before saving. |
+| **3. Return to Menu Selection** | Goes back to the top-level menu. |
 | **4. Quit Program** | Exits the application. |
+
+### Admin Functions
+
+| Option | What it does |
+| --- | --- |
+| **1. Display reports from Trip ID** | Shows every stored report for a given trip. |
+| **2. Display reports table** | Shows the priority queue, plus counts of cases needing immediate attention or manual review. |
+| **3. Filter reports by severity or category** | Shows only reports with a chosen severity (0–2) or category. |
+| **4. Delete a report** | Shows the report and asks for confirmation before deleting it permanently. |
+| **5. Return to Menu Selection** | Goes back to the top-level menu. |
+| **6. Quit Program** | Exits the application. |
 
 ### Example: AI-generated reasoning
 
@@ -108,56 +153,199 @@ For a report describing unwanted physical contact from a driver, the AI returns 
 
 ### Example: priority queue
 
-Selecting option 3 sorts records using the columns `(immediate_attention_required, severity, timestamp)`. Level 2 is the highest severity and 0 the lowest. Timestamp tie-breakers make sure the **oldest urgent cases are addressed first**.
+The reports table sorts records by `(immediate_attention_required, severity, timestamp)`. Level 2 is the highest severity and 0 the lowest. Timestamp tie-breakers make sure the **oldest urgent cases are addressed first**.
 
 ```text
-Incident Report Summary – 8 report(s)
- user_id  trip_id  license_plate  category           severity  confidence  second_opinion_required  immediate_attention_required  timestamp
- user420  trip293  SAB1231V       physical_assault   2         1.0         False                    True                          2026-10-14 14:04:46
+Incident Report Summary - 8 report(s)
+ report_id  user_id  trip_id  license_plate  category          severity  confidence  second_opinion_required  immediate_attention_required  timestamp
+         3  user420  trip293  SAB1231V       physical_assault  2         1.0         False                    True                          2026-10-14 14:04:46
  ...
-Immediate Attention Needed – 3
-Manual Review – 1
+Immediate Attention Needed - 3
+Manual Review - 1
 ```
 
-<!-- TODO: add screenshots from the report appendix (Figures A.1–A.3), e.g. docs/figure-a1.png -->
+<!-- TODO: add screenshots from the report appendix, e.g. docs/figure-a1.png -->
 
 ---
 
 ## System Design
 
-### Data flow
+### Project structure
 
-| Stage | Module | Responsibility |
+| File | Role |
+| --- | --- |
+| `main.py` | `ReportingApp`: builds the managers, runs the menu loop and maps each menu option to an action |
+| `models.py` | `IncidentReport`: the report object passed between all managers |
+| `io_manager.py` | `IOManager`: menus, prompts, PDPA consent and all output |
+| `InputValidator.py` | `InputValidator`: regex validation and PII redaction, used by the IO Manager |
+| `ai_manager.py` | `AIManager`, `AIProvider` (`GeminiProvider`, `MockProvider`), `PromptBuilder`, `ResponseValidator` |
+| `logic_manager.py` | `LogicManager` and the escalation rules |
+| `submission_rules.py` | Submission rules (`ReportLimitRule`, `SpamFloodRule`) |
+| `data_manager.py` | `DataManager`, `SqliteRepository`, `CSVRepository`, `StorageFactory` |
+| `tests/` | Unit tests for all four managers |
+
+### Data flow (writing a report)
+
+| Stage | Class | Responsibility |
 | --- | --- | --- |
-| 1. Input and validation | `io_manager.py` | Collects User ID, Trip ID, licence plate and report details; validates and sanitises them |
-| 2. AI classification | `ai_manager.py` | Calls Google Gemini; returns severity (0–2), confidence (0–1) and reasoning |
-| 3. Business rules | `logic_manager.py` | Routes the report based on severity, category and confidence |
-| 4. Persistence | `data_manager.py` | Writes the final record to `reportcases.csv` |
-| 5. Output | `io_manager.py` | Reads back from the CSV and displays reports and the priority queue |
+| 1. Consent and input | `IOManager` + `InputValidator` | Shows the PDPA notice, collects and validates fields, redacts PII, builds an `IncidentReport` |
+| 2. Submission rules | `LogicManager` | Rejects the report if the per-trip or spam limit is reached (no AI call made) |
+| 3. AI classification | `AIManager` | Builds the prompt, calls Gemini, validates the JSON, retries if needed; result applied with `report.apply_ai_result()` |
+| 4. Escalation | `LogicManager` | Sets `immediate_attention_required` / `second_opinion_required` and picks the queue |
+| 5. Persistence | `DataManager` | Saves to SQLite (or CSV fallback) and assigns the `report_id` |
+| 6. Output | `IOManager` | Confirms the report ID, AI classification and queue |
 
 ```mermaid
 flowchart TD
-    A([Automated Triage System for Ride-Hailing Reports]) --> B[User / Passenger Incident Report]
-    B -->|User ID, Trip ID, License Plate, Report Details| C[io_manager.py<br/>Input/Output Validation]
-    C -->|Sanitised user input| D[ai_manager.py<br/>AI Classification]
-    D -->|Severity 0-2, Confidence 0-1, Reasoning| E[logic_manager.py<br/>Business Rules]
-    E -->|Severity >= 2 AND category in emergency_categories AND confidence >= 0.5| F[Emergency Escalation]
-    E -->|Emergency Escalation = False, Manual Review = False| G[Default]
-    E -->|Confidence < 0.5| H[Manual Review]
-    F --> I[data_manager.py<br/>Data Persistence and Handling]
+    A([Passenger incident report]) --> B[IOManager<br/>PDPA consent + input]
+    B -->|Declined| X[Report cancelled]
+    B -->|IncidentReport, PII redacted| C[LogicManager<br/>Submission rules]
+    C -->|Over trip limit or spam limit| Y[Report rejected]
+    C -->|Allowed| D[AIManager<br/>Gemini classification]
+    D -->|No valid result after retries| Z[Error shown, nothing saved]
+    D -->|Category, severity, confidence, reasoning| E[LogicManager<br/>Escalation rules]
+    E -->|Severity 2 AND emergency category AND confidence >= 0.5| F[Emergency response queue]
+    E -->|Confidence < 0.5| G[Manual safety-triage queue]
+    E -->|Neither| H[Standard triage queue]
+    F --> I[DataManager]
     G --> I
-    H -->|second_opinion, emergency_escalation| I
-    I -->|Final dataset| J[(reportcases.csv)]
-    J -->|Sent to be outputted from io_manager| C
+    H --> I
+    I -->|Primary| J[(reportcases.db<br/>SQLite)]
+    I -.->|Fallback| K[(reportcases.csv)]
+    J --> L[IOManager<br/>Admin views]
+    K -.-> L
 ```
 
-### Routing rules
+---
 
-| Route | Condition |
-| --- | --- |
-| **Emergency escalation** | Severity ≥ 2 **and** category is in `emergency_categories` **and** confidence ≥ 0.5 |
-| **Manual review** (second opinion) | Confidence < 0.5 |
-| **Default** | Neither of the above |
+## Object-Oriented Design
+
+### Class diagram
+
+```mermaid
+classDiagram
+    class ReportingApp {
+        -DataManager _data
+        -IOManager _io
+        -AIManager _ai
+        -LogicManager _logic
+        +run()
+    }
+    class IncidentReport {
+        -user_id
+        -trip_id
+        -license_plate
+        -report_details
+        -timestamp
+        -report_id
+        +revise_details(new_details)
+        +apply_ai_result(ai_result)
+        +has_ai_result() bool
+        +to_dict() dict
+    }
+    class IOManager {
+        -InputValidator _validator
+        +build_report() IncidentReport
+        +report_summary(reports)
+    }
+    class AIManager {
+        -AIProvider _provider
+        +process(report) dict
+    }
+    class AIProvider {
+        <<abstract>>
+        +generate(prompt)*
+    }
+    class LogicManager {
+        +check_submission(report) RuleOutcome
+        +evaluate(report)
+        +route(report) str
+        +can_edit(report, user_id) bool
+    }
+    class EscalationRule {
+        <<abstract>>
+        +apply(report)*
+    }
+    class SubmissionRule {
+        <<abstract>>
+        +check(report)* RuleOutcome
+    }
+    class DataManager {
+        -RecordRepository _active
+        -RecordRepository _fallback
+        +save_report(report) int
+        +get_all_reports() list
+        +update_report(report)
+        +delete_report(report_id)
+        +purge_old_reports() int
+    }
+    class RecordRepository {
+        <<abstract>>
+        +save(report)*
+        +get_all()*
+        +update(report)*
+        +delete(report_id)*
+    }
+
+    ReportingApp *-- IOManager
+    ReportingApp *-- AIManager
+    ReportingApp *-- LogicManager
+    ReportingApp *-- DataManager
+    IOManager *-- InputValidator
+    AIManager o-- AIProvider
+    AIManager *-- PromptBuilder
+    AIManager *-- ResponseValidator
+    AIProvider <|-- GeminiProvider
+    AIProvider <|-- MockProvider
+    LogicManager *-- EscalationRule
+    LogicManager *-- SubmissionRule
+    EscalationRule <|-- EmergencyEscalationRule
+    EscalationRule <|-- LowConfidenceRule
+    SubmissionRule <|-- ReportLimitRule
+    SubmissionRule <|-- SpamFloodRule
+    DataManager o-- RecordRepository
+    RecordRepository <|-- SqliteRepository
+    RecordRepository <|-- CSVRepository
+    StorageFactory ..> DataManager : creates
+```
+
+### OOP concepts used
+
+| Concept | Where | How |
+| --- | --- | --- |
+| **Encapsulation** | `IncidentReport` | Passenger fields (`user_id`, `trip_id`, `license_plate`, `report_details`, `timestamp`) are private with read-only properties. The description can only change through `revise_details()`, which also clears the old AI result so an edited report must be re-classified. |
+| **Abstraction** | `AIProvider`, `RecordRepository`, `EscalationRule`, `SubmissionRule` | Abstract base classes define *what* must be done (`generate`, `save`, `apply`, `check`) without saying how. |
+| **Inheritance** | `GeminiProvider` / `MockProvider`, `SqliteRepository` / `CSVRepository`, the rule subclasses | Each subclass implements its parent's abstract methods. |
+| **Polymorphism** | `AIManager.process()`, `DataManager`, `LogicManager` | The AI Manager calls `generate()` without knowing whether it's Gemini or the mock. The Data Manager calls the same CRUD methods on SQLite or CSV. The Logic Manager loops over a list of rules and calls `apply()` / `check()` on each. |
+| **Composition** | `ReportingApp`, `AIManager`, `IOManager` | The app creates and owns the four managers; the AI Manager owns its `PromptBuilder` and `ResponseValidator`; the IO Manager owns its `InputValidator`. |
+| **Aggregation** | `AIManager`, `DataManager` | The AI provider and storage repositories are passed in and exist independently, which is what lets tests swap in a mock provider. |
+| **Factory** | `StorageFactory` | Hides the "try SQLite first, fall back to CSV" decision from `main.py`. |
+
+---
+
+## Business Rules
+
+### Submission rules (checked before the AI call)
+
+| Rule | Condition | Outcome |
+| --- | --- | --- |
+| `ReportLimitRule` | User already has 2 reports for this trip | Report rejected with a message |
+| `SpamFloodRule` | User has submitted 5 or more reports in the last 7 days | Report rejected; account flagged for suspected spam |
+
+### Escalation and routing (after AI classification)
+
+| Rule / Route | Condition | Queue |
+| --- | --- | --- |
+| `EmergencyEscalationRule` | Severity = 2 **and** category in `physical_assault`, `sexual_harassment`, `stalking` **and** confidence ≥ 0.5 | Emergency response queue (driver flagged pending review) |
+| `LowConfidenceRule` | Confidence < 0.5 | Manual safety-triage queue (second opinion required) |
+| Default | Neither of the above | Standard triage queue (normal priority) |
+
+Additional policy: **sexual harassment is always severity 2**, enforced by `ResponseValidator` even if the AI returns a lower value.
+
+### Other rules
+
+- Only the user who submitted a report can edit it (`LogicManager.can_edit`, case-insensitive user ID match).
+- A report cannot be evaluated or saved unless it has passed through the AI Manager (`IncidentReport.has_ai_result()`).
 
 ---
 
@@ -165,29 +353,46 @@ flowchart TD
 
 ### Files used by the application
 
-**`reportcases.csv`** is the core persistent data storage layer. It is a structured CSV flat-file database that bridges raw user inputs, AI-driven classification and business-logic routing, without requiring an external SQL database server.
+All files live in `logs_reports/`, which is mounted as a Docker volume.
 
-### Data format
+| File | Purpose |
+| --- | --- |
+| `reportcases.db` | Primary SQLite database (`reportcases` table). Created automatically on first run. |
+| `reportcases.csv` | CSV fallback with the same columns. Used if the database can't be opened at startup, or if it fails during a run. |
+| `*.log` | Application and AI Manager logs |
 
-Standardised comma-separated values (CSV) using UTF-8, for cross-platform text rendering and dictionary-key row mapping.
+SQLite queries use `?` placeholders, so user input is never inserted into SQL directly (protects against SQL injection). CSV uses UTF-8 encoding.
 
 ### Structure of stored records
 
-| Field | Type |
-| --- | --- |
-| `timestamp` | datetime |
-| `trip_id` | str |
-| `user_id` | str |
-| `license_plate` | str |
-| `report_details` | str |
-| `category` | str |
-| `contact_type` | str |
-| `stated_effect` | str |
-| `severity` | int |
-| `confidence` | float |
-| `reasoning` | str |
-| `second_opinion_required` | boolean |
-| `immediate_attention_required` | boolean |
+Column order is defined once in `IncidentReport.FIELDNAMES` and shared by both backends.
+
+| Field | Type | Set by |
+| --- | --- | --- |
+| `report_id` | int (auto-increment primary key) | Data Manager |
+| `timestamp` | datetime (Singapore time, whole seconds) | Auto-captured |
+| `trip_id` | str | Passenger |
+| `user_id` | str | Passenger |
+| `license_plate` | str | Passenger |
+| `report_details` | str (PII redacted) | Passenger |
+| `category` | str | AI Manager |
+| `contact_type` | str (`none` / `verbal` / `physical`) | AI Manager |
+| `stated_effect` | str (`none` / `distress` / `fear_for_safety`) | AI Manager |
+| `severity` | int (0–2) | AI Manager |
+| `confidence` | float (0–1) | AI Manager |
+| `reasoning` | str | AI Manager |
+| `second_opinion_required` | boolean | Logic Manager |
+| `immediate_attention_required` | boolean | Logic Manager |
+
+---
+
+## Privacy and Data Protection (PDPA)
+
+- **Consent:** a personal data notice is shown before any data is collected. If the user declines, nothing is collected.
+- **Data minimisation:** NRIC numbers, email addresses and Singapore phone numbers in the description are replaced with `[NRIC]`, `[EMAIL]` and `[PHONE]` before the text is sent to the AI or stored.
+- **Retention:** reports older than 180 days are deleted automatically when the program starts.
+- **User control:** passengers can edit their own reports; admins can delete reports on request.
+- **Secrets:** the API key lives only in `.env`, which is excluded by both `.gitignore` and `.dockerignore`.
 
 ---
 
@@ -197,34 +402,41 @@ Standardised comma-separated values (CSV) using UTF-8, for cross-platform text r
 
 | Exception scenario | Possible cause | Detection method | Handling strategy | User outcome |
 | --- | --- | --- | --- | --- |
-| Empty input | User inputs blank | `non_empty_input()` | Reject input and retry until valid | User notified that input can't be empty |
-| Invalid input | Input doesn't match the required format for Trip/User ID | `validate_user_id()` / `validate_trip_id()` | Reject input and retry until valid | User notified of acceptable input |
-| Invalid report length | Fewer than 10 or more than 2000 characters | `validate_report_details()` | Reject input and retry until acceptable | User notified of minimum and maximum report length |
-| Invalid menu input | Option outside the available menu options | `get_options()` | Reject input and request new input | User notified of invalid option and asked to enter a valid one |
-| Malformed input | Report contains characters such as `\n` or other control characters | `sanitize_report_details()` | Normalise input and remove control characters | User not notified of changes |
+| Empty input | User inputs blank | `InputValidator.non_empty_input()` | Reject input and retry until valid | User notified that input can't be empty |
+| Invalid ID format | Trip/User ID doesn't match `trip123` / `user123` | `InputValidator.trip_id()` / `user_id()` regex | Reject input and retry until valid | User notified of the expected format |
+| Invalid licence plate | Doesn't match the Singapore plate format | `InputValidator.license_plate()` regex | Reject and retry; valid plates are normalised (spaces removed, uppercase) | User notified of the expected format |
+| Invalid report length | Fewer than 10 or more than 2000 characters | `InputValidator.report_details()` | Reject input and retry until acceptable | User notified of minimum and maximum length |
+| Invalid menu / report ID input | Option outside the menu, or report ID not a positive number | `get_menu_choice()`, `get_menu_option()`, `InputValidator.report_id()` | Reject input and request new input | User asked to enter a valid value |
+| Malformed input / PII | Control characters, NRIC, email or phone number in the description | `InputValidator.sanitize_report_details()` | Strip control characters, redact PII with placeholders | Not notified; cleaned text is stored |
+| Consent declined | User answers "n" to the PDPA notice | `confirm_consent()` | `build_report()` returns `None`; nothing collected | "Report cancelled: consent was not given" |
 
 ### AI Manager
 
 | Exception scenario | Possible cause | Detection method | Handling strategy | User outcome |
 | --- | --- | --- | --- | --- |
-| API rate limit exceeded | Free-tier rate limit hit | `call_api()` catches `APIError`, status 429 | Switch to next model in list; retry 3× with backoff | Marked `manual_review` if still failing; batch continues |
-| Missing API key | Not passed in `docker run` | `_client is None` check at import time | Print an error message about the missing API key | Program exits immediately before processing any rows |
-| Model not found | Retired or wrong model name | 404 status in `APIError` | Same retry (won't help, since the name is wrong) | Record routed to manual review; root cause needs a code fix, not a retry |
-| Malformed AI response | Non-JSON, or JSON wrapped in markdown fences | `parse_response()` regex finds no `{...}` block, or `json.JSONDecodeError` | Logged via `logging.error`; `process()` retries the whole call | Record routed to manual review if it never resolves |
-| AI response fails validation | Value outside allowed list, or missing key | `validate_response()` checks against `VALID_CATEGORIES`, etc. | Logged with the invalid field; `process()` retries | Record routed to manual review if it never resolves |
+| Missing API key | `.env` missing or `GEMINI_API_KEY` empty | `GeminiProvider.__init__` raises `AIConfigurationError` | Caught in `main.py` | Friendly error message; program exits before showing the menu |
+| API failure | Rate limit (429), timeout, network error, wrong model (404), auth error | `GeminiProvider.generate()` catches `APIError` and other exceptions | Logged; returns `None`; `AIManager.process()` retries up to 3 more times with increasing delay | If all attempts fail: "No analysis received from the AI service", nothing saved |
+| Malformed AI response | Non-JSON, JSON wrapped in markdown fences, or a JSON list | `ResponseValidator.parse()` regex / `json.JSONDecodeError` / type check | `{...}` block extracted where possible; otherwise logged and retried | Same as above if it never resolves |
+| AI response fails validation | Missing key, invalid category/contact type/effect, severity or confidence out of range | `ResponseValidator.validate()` | Logged with the invalid field; retried | Same as above if it never resolves |
 
 ### Logic Manager
 
 | Exception scenario | Possible cause | Detection method | Handling strategy | User outcome |
 | --- | --- | --- | --- | --- |
-| Empty/invalid AI output | AI API failure; AI output returns `None` | `validate_Aioutput` function | Returns a `False` boolean to the function for the I/O manager to print | User is told the run failed and returns to the main menu |
+| Report has no AI result | Report skipped the AI step | `IncidentReport.has_ai_result()` in `evaluate()` | Raises `ValueError`, caught and logged in `main.py` | Error shown, report not saved |
+| Submission limit reached | Too many reports for a trip, or spam flood | `ReportLimitRule` / `SpamFloodRule` | Returns `RuleOutcome(allowed=False)` before any AI call | "Report not accepted" with the reason |
+| Unauthorised edit | User ID doesn't match the report's owner | `can_edit()` | Edit refused | "No report with that ID was submitted by this user" |
 
 ### Data Manager
 
 | Exception scenario | Possible cause | Detection method | Handling strategy | User outcome |
 | --- | --- | --- | --- | --- |
-| Missing or empty storage files | Database files deleted, moved, or freshly initialised (size == 0) | Path existence check via `os.path.exists()` and file size check | Automatically run `initialize_csv()` to recreate files with default headers | Application runs smoothly without manual file setup |
-| Missing keys or type mismatches | Incomplete dictionaries from AI, or cross-module type confusion (e.g. int vs str ID) | Safe dictionary `.get(field, "")` calls and explicit `str()` casting during evaluation | Automatically substitute missing values and force string coercion during comparisons | Database queries, updates and filters execute without crashing |
+| Database unavailable at startup | Corrupted or unreadable `.db` file, directory can't be created | `sqlite3.Error` / `OSError` wrapped as `StorageUnavailableError` in `StorageFactory` | Start with CSV storage instead | Warning: "Database unavailable - using local CSV storage instead" |
+| Database fails during a run | File locked, deleted or corrupted mid-session | `StorageUnavailableError` in any CRUD call | `DataManager` switches to CSV and retries the operation | Warning: "Database error - switched to local CSV storage"; the report is still saved |
+| Missing CSV file | Deleted, moved or first run | Path existence check | File recreated with headers | Runs normally without manual setup |
+| Corrupt CSV header | Columns edited or file from an old version | Header compared to `IncidentReport.FIELDNAMES` | Old file backed up as `reportcases.corrupt-<timestamp>.csv`, new file started | Runs normally; old data kept in the backup |
+| Bad row in CSV | Unconvertible value in a row | `KeyError` / `ValueError` / `TypeError` while loading | Row skipped and logged | Remaining reports display normally |
+| Any other storage error | No fallback left | `StorageError` caught in `main.py` | Logged | "Could not access stored reports"; returns to the menu instead of crashing |
 
 ---
 
@@ -232,13 +444,14 @@ Standardised comma-separated values (CSV) using UTF-8, for cross-platform text r
 
 ### Automated tests
 
-This project uses [Github Actions](https://github.com/ayeitsjonny/26INF1103P5-4/blob/Continuous_Integration_Test/.github/workflows/ci.yml) and python's built in "unittest" that tests the core logic of all four manages using **hardcoded sample AI responses** and a mocked AI provider, so they run **without a live API connection** and never call Google Gemini.
+The project uses Python's built-in `unittest` with **65 tests** covering all four managers. The AI is replaced with `MockProvider` and hardcoded sample responses, so the tests run **without a live API connection** and never call Google Gemini.
 
 | Test module | Manager under test | What it verifies |
 | --- | --- | --- |
-| `test_ai_manager.py` | AI Manager | Response parsing, schema validation, markdown-fenced JSON extraction, the sexual-harassment severity override, retry behaviour, and failure cases (non-JSON, broken JSON, missing keys, invalid category/severity/confidence, API returning `None`) |
-| `test_logic_manager.py` | Logic Manager | Escalation and routing, the multi-condition emergency rule (severity **and** category **and** confidence), low-confidence second-opinion flag, edit permission, and the report-limit and spam-flood submission rules |
-| `test_data_manager.py` | Data Manager | CSV CRUD roundtrip, missing-file recreation, corrupt-header backup, severity/category/trip filtering, and the database-unavailable fallback to CSV |
+| `test_io_manager.py` | IO Manager | Menu choices and retries, field validation (user/trip ID, licence plate normalisation, report ID), multi-line report details and length limits, PDPA consent (accept and decline), filter choices, priority-queue sorting and record display |
+| `test_ai_manager.py` | AI Manager | Response parsing, schema validation, markdown-fenced JSON extraction, the sexual-harassment severity override, retry behaviour, and failure cases (non-JSON, broken JSON, JSON list, missing keys, invalid category/severity/confidence, provider returning `None`) |
+| `test_logic_manager.py` | Logic Manager | Refusing reports without an AI result, the multi-condition emergency rule, low-confidence second opinion, standard routing, flag reset on re-evaluation, edit permission, and the report-limit and spam-flood submission rules |
+| `test_data_manager.py` | Data Manager | CSV CRUD roundtrip, missing-file recreation, corrupt-header backup, severity/category/trip filtering, and falling back to CSV when the primary storage is unavailable |
 | `sample_responses.py` | — | Shared hardcoded AI responses used as test fixtures (no network) |
 
 ### Running the tests
@@ -249,8 +462,7 @@ Locally, from the project root:
 python -m unittest discover -s tests -p "test_*.py" -v
 ```
 
-Inside the Docker container (the suite is copied into the image, so no live API is
-needed — a dummy key satisfies the environment variable):
+Inside the Docker container (the suite is copied into the image; a dummy key satisfies the environment variable):
 
 ```bash
 docker build -t <image_name> .
@@ -258,43 +470,15 @@ docker run --rm -e GEMINI_API_KEY=test-key-not-used <image_name> \
   python3 -m unittest discover -s tests -p "test_*.py" -v
 ```
 
-All tests pass identically on the host and inside the container.
-
 ### Continuous Integration
 
-A GitHub Actions workflow at `.github/workflows/ci.yml` runs the test suite
-automatically on every push and pull request. The workflow:
+A [GitHub Actions workflow](.github/workflows/ci.yml) runs the test suite automatically on every push and pull request. The workflow:
 
 1. Checks out the repository and sets up Python 3.12.
 2. Installs dependencies from `requirements.txt`.
 3. Runs `python -m unittest discover -s tests -p "test_*.py" -v`.
 
-Because the tests mock the AI provider, CI uses a dummy `GEMINI_API_KEY` and makes
-**no live API calls and stores no secret**. The workflow status is visible on the
-repository's **Actions** tab.
-
----
-
-## Contributing: Initial Commit Guide
-
-Before you start working on your own section, please do the following:
-
-1. `git pull` to make sure you have the latest version of the repository.
-
-2. `git branch <your_section>`: for `<section>`, input your assigned role. For example, if I'm doing IO Manager, I'll put `git branch io_manager`. This will be the branch you're working on.
-
-3. `git checkout <your_section>`: navigate to your new branch using this command.
-
-4. `git branch`: verify you're on the correct branch. Your output should show something like:
-
-   ```text
-     main
-   * io_manager
-   ```
-
-5. After this, you can start work, and `git add` / `commit` / `push` as you normally would.
-
-6. Once you're done with your work (as in you have **NOTHING** else to add or change), **create a pull request on the GitHub page**.
+Because the tests mock the AI provider, CI uses a dummy `GEMINI_API_KEY` and makes **no live API calls and stores no secret**. The workflow status is shown by the badge at the top of this README and on the repository's **Actions** tab.
 
 ---
 
@@ -302,11 +486,13 @@ Before you start working on your own section, please do the following:
 
 **P5 Group 4**
 
-- Jacqueline Goh Jie Ting
-- Jason Christofer Utomo
-- Jonathan New Kah Hwee
-- Leong Jun Hong
-- Lee Xin Yuan
-- Rey Cham (Qin Zhixuan)
+| Member | Role |
+| --- | --- |
+| Jonathan New Kah Hwee | AI Manager |
+| Leong Jun Hong | IO Manager |
+| Lee Xin Yuan | Logic Manager |
+| Rey Cham (Qin Zhixuan) | Data Manager |
+| Jacqueline Goh Jie Ting | Merging and testing |
+| Jason Christofer Utomo | Merging and testing |
 
 Repository: <https://github.com/ayeitsjonny/26INF1103P5-4>
